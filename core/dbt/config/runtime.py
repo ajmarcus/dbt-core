@@ -19,14 +19,11 @@ from dbt.helper_types import FQNPath, PathSet
 from dbt.contracts.connection import AdapterRequiredConfig, Credentials
 from dbt.contracts.graph.manifest import ManifestMetadata
 from dbt.contracts.relation import ComponentName
-from dbt.events.types import ProfileLoadError, ProfileNotFound
-from dbt.events.functions import fire_event
 from dbt.ui import warning_tag
 
 from dbt.contracts.project import Configuration, UserConfig
 from dbt.exceptions import (
     RuntimeException,
-    DbtProfileError,
     DbtProjectError,
     validator_error_message,
     warn_or_error,
@@ -191,6 +188,7 @@ class RuntimeConfig(Project, Profile, AdapterRequiredConfig):
         profile_renderer: ProfileRenderer,
         profile_name: Optional[str],
     ) -> Profile:
+
         return Profile.render_from_args(
             args, profile_renderer, profile_name
         )
@@ -540,21 +538,10 @@ class UnsetProfileConfig(RuntimeConfig):
         profile_renderer: ProfileRenderer,
         profile_name: Optional[str],
     ) -> Profile:
-        try:
-            profile = Profile.render_from_args(
-                args, profile_renderer, profile_name
-            )
-        except (DbtProjectError, DbtProfileError) as exc:
-            selected_profile_name = Profile.pick_profile_name(
-                args_profile_name=getattr(args, 'profile', None),
-                project_profile_name=profile_name
-            )
-            fire_event(ProfileLoadError(exc=exc))
-            fire_event(ProfileNotFound(profile_name=selected_profile_name))
-            # return the poisoned form
-            profile = UnsetProfile()
-            # disable anonymous usage statistics
-            tracking.disable_tracking()
+
+        profile = UnsetProfile()
+        # disable anonymous usage statistics
+        tracking.disable_tracking()
         return profile
 
     @classmethod
