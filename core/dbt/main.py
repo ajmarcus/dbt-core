@@ -1,5 +1,3 @@
-from typing import List
-from dbt.logger import log_cache_events, log_manager
 
 import argparse
 import os.path
@@ -8,41 +6,12 @@ import traceback
 from contextlib import contextmanager
 from pathlib import Path
 
-import dbt.version
-from dbt.events.functions import fire_event, setup_event_logger
 from dbt.events.types import (
     MainEncounteredError, MainKeyboardInterrupt, MainReportVersion, MainReportArgs,
     MainTrackingUserState, MainStackTrace
 )
 import dbt.flags as flags
-import dbt.task.build as build_task
-import dbt.task.clean as clean_task
-import dbt.task.compile as compile_task
-import dbt.task.debug as debug_task
-import dbt.task.deps as deps_task
-import dbt.task.freshness as freshness_task
-import dbt.task.generate as generate_task
-import dbt.task.init as init_task
-import dbt.task.list as list_task
-import dbt.task.parse as parse_task
-import dbt.task.run as run_task
-import dbt.task.run_operation as run_operation_task
-import dbt.task.seed as seed_task
-import dbt.task.serve as serve_task
-import dbt.task.snapshot as snapshot_task
-import dbt.task.test as test_task
-from dbt.profiler import profiler
-from dbt.adapters.factory import reset_adapters, cleanup_connections
-
-import dbt.tracking
-
-from dbt.utils import ExitCodes
-from dbt.config.profile import DEFAULT_PROFILES_DIR, read_user_config
-from dbt.exceptions import (
-    InternalException,
-    NotImplementedException,
-    FailedToConnectException
-)
+import tracking as tracking
 
 
 class DBTVersion(argparse.Action):
@@ -65,6 +34,7 @@ class DBTVersion(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         formatter = argparse.RawTextHelpFormatter(prog=parser.prog)
+        import dbt.version
         formatter.add_text(dbt.version.get_version_information())
         parser.exit(message=formatter.format_help())
 
@@ -85,6 +55,7 @@ class DBTArgumentParser(argparse.ArgumentParser):
         default=None,
     ):
         mutex_group = self.add_mutually_exclusive_group()
+        from dbt.exceptions import InternalException
         if not name.startswith('--'):
             raise InternalException(
                 'cannot handle optional argument without "--" prefix: '
@@ -120,6 +91,10 @@ class DBTArgumentParser(argparse.ArgumentParser):
 
 
 def main(args=None):
+    from dbt.events.functions import fire_event
+    from dbt.utils import ExitCodes
+    from dbt.logger import log_manager
+
     if args is None:
         args = sys.argv[1:]
     with log_manager.applicationbound():
@@ -155,6 +130,7 @@ def handle(args):
 
 @contextmanager
 def adapter_management():
+    from dbt.adapters.factory import reset_adapters, cleanup_connections
     reset_adapters()
     try:
         yield
@@ -163,13 +139,14 @@ def adapter_management():
 
 
 def handle_and_check(args):
+    from dbt.logger import log_manager
     with log_manager.applicationbound():
         parsed = parse_args(args)
-
+        from dbt.config.profile import read_user_config
         # Set flags from args, user config, and env vars
         user_config = read_user_config(flags.PROFILES_DIR)  # This is read again later
         flags.set_from_args(parsed, user_config)
-        dbt.tracking.initialize_from_flags()
+        tracking.initialize_from_flags()
         # Set log_format from flags
         parsed.cls.set_log_format()
 
@@ -182,6 +159,7 @@ def handle_and_check(args):
         if parsed.record_timing_info:
             profiler_enabled = True
 
+        from dbt.profiler import profiler
         with profiler(
             enable=profiler_enabled,
             outfile=parsed.record_timing_info
@@ -197,28 +175,31 @@ def handle_and_check(args):
 
 @contextmanager
 def track_run(task):
-    dbt.tracking.track_invocation_start(config=task.config, args=task.args)
+    tracking.track_invocation_start(config=task.config, args=task.args)
+    from dbt.exceptions import NotImplementedException, FailedToConnectException
     try:
         yield
-        dbt.tracking.track_invocation_end(
+        tracking.track_invocation_end(
             config=task.config, args=task.args, result_type="ok"
         )
     except (NotImplementedException,
             FailedToConnectException) as e:
+        from dbt.events.functions import fire_event
         fire_event(MainEncounteredError(e=e))
-        dbt.tracking.track_invocation_end(
+        tracking.track_invocation_end(
             config=task.config, args=task.args, result_type="error"
         )
     except Exception:
-        dbt.tracking.track_invocation_end(
+        tracking.track_invocation_end(
             config=task.config, args=task.args, result_type="error"
         )
         raise
     finally:
-        dbt.tracking.flush()
+        tracking.flush()
 
 
 def run_from_args(parsed):
+    from dbt.logger import log_cache_events, log_manager
     log_cache_events(getattr(parsed, 'log_cache_events', False))
 
     # this will convert DbtConfigErrors into RuntimeExceptions
@@ -232,13 +213,15 @@ def run_from_args(parsed):
     log_manager.set_path(log_path)
     # if 'list' task: set stdout to WARN instead of INFO
     level_override = parsed.cls.pre_init_hook(parsed)
+    from dbt.events.functions import setup_event_logger
     setup_event_logger(log_path or 'logs', level_override)
-
+    from dbt.events.functions import fire_event
+    import dbt.version
     fire_event(MainReportVersion(v=str(dbt.version.installed)))
     fire_event(MainReportArgs(args=parsed))
 
-    if dbt.tracking.active_user is not None:  # mypy appeasement, always true
-        fire_event(MainTrackingUserState(dbt.tracking.active_user.state()))
+    if tracking.active_user is not None:  # mypy appeasement, always true
+        fire_event(MainTrackingUserState(tracking.active_user.state()))
 
     results = None
 
@@ -259,7 +242,7 @@ def _build_base_subparser():
         Default is the current working directory and its parents.
         '''
     )
-
+    from dbt.config.profile import DEFAULT_PROFILES_DIR
     base_subparser.add_argument(
         '--profiles-dir',
         default=None,
@@ -355,7 +338,8 @@ def _build_init_subparser(subparsers, base_subparser):
         Skip interative profile setup.
         '''
     )
-    sub.set_defaults(cls=init_task.InitTask, which='init', rpc_method=None)
+    # from dbt.task.init import InitTask
+    # sub.set_defaults(cls=InitTask, which='init', rpc_method=None)
     return sub
 
 
@@ -367,11 +351,12 @@ def _build_build_subparser(subparsers, base_subparser):
         Run all Seeds, Models, Snapshots, and tests in DAG order
         '''
     )
-    sub.set_defaults(
-        cls=build_task.BuildTask,
-        which='build',
-        rpc_method='build'
-    )
+    # from dbt.task.build import BuildTask
+    # sub.set_defaults(
+    #     cls=BuildTask,
+    #     which='build',
+    #     rpc_method='build'
+    # )
     sub.add_argument(
         '-x',
         '--fail-fast',
@@ -399,14 +384,14 @@ def _build_build_subparser(subparsers, base_subparser):
         ''',
     )
 
-    resource_values: List[str] = [
-        str(s) for s in build_task.BuildTask.ALL_RESOURCE_VALUES
-    ] + ['all']
-    sub.add_argument('--resource-type',
-                     choices=resource_values,
-                     action='append',
-                     default=[],
-                     dest='resource_types')
+    # resource_values: List[str] = [
+    #     str(s) for s in BuildTask.ALL_RESOURCE_VALUES
+    # ] + ['all']
+    # sub.add_argument('--resource-type',
+    #                  choices=resource_values,
+    #                  action='append',
+    #                  default=[],
+    #                  dest='resource_types')
     # explicity don't support --models
     sub.add_argument(
         '-s',
@@ -430,7 +415,8 @@ def _build_clean_subparser(subparsers, base_subparser):
         (usually the dbt_packages and target directories.)
         '''
     )
-    sub.set_defaults(cls=clean_task.CleanTask, which='clean', rpc_method=None)
+    # from dbt.task.clean import CleanTask
+    # sub.set_defaults(cls=CleanTask, which='clean', rpc_method=None)
     return sub
 
 
@@ -452,7 +438,8 @@ def _build_debug_subparser(subparsers, base_subparser):
         '''
     )
     _add_version_check(sub)
-    sub.set_defaults(cls=debug_task.DebugTask, which='debug', rpc_method=None)
+    # from dbt.task.debug import DebugTask
+    # sub.set_defaults(cls=DebugTask, which='debug', rpc_method=None)
     return sub
 
 
@@ -464,7 +451,8 @@ def _build_deps_subparser(subparsers, base_subparser):
         Pull the most recent version of the dependencies listed in packages.yml
         '''
     )
-    sub.set_defaults(cls=deps_task.DepsTask, which='deps', rpc_method='deps')
+    # from dbt.task.deps import DepsTask
+    # sub.set_defaults(cls=DepsTask, which='deps', rpc_method='deps')
     return sub
 
 
@@ -485,8 +473,9 @@ def _build_snapshot_subparser(subparsers, base_subparser):
         Overrides settings in profiles.yml.
         '''
     )
-    sub.set_defaults(cls=snapshot_task.SnapshotTask, which='snapshot',
-                     rpc_method='snapshot')
+    # from dbt.task.snapshot import SnapshotTask
+    # sub.set_defaults(cls=SnapshotTask, which='snapshot',
+    #                  rpc_method='snapshot')
     return sub
 
 
@@ -522,8 +511,8 @@ def _build_run_subparser(subparsers, base_subparser):
         Stop execution upon a first failure.
         '''
     )
-
-    run_sub.set_defaults(cls=run_task.RunTask, which='run', rpc_method='run')
+    # from dbt.task.run import RunTask
+    # run_sub.set_defaults(cls=RunTask, which='run', rpc_method='run')
     return run_sub
 
 
@@ -536,8 +525,9 @@ def _build_compile_subparser(subparsers, base_subparser):
         Compiled SQL files are written to the target/ directory.
         '''
     )
-    sub.set_defaults(cls=compile_task.CompileTask, which='compile',
-                     rpc_method='compile')
+    # from dbt.task.compile import CompileTask
+    # sub.set_defaults(cls=CompileTask, which='compile',
+    #                  rpc_method='compile')
     sub.add_argument('--parse-only', action='store_true')
     return sub
 
@@ -550,8 +540,9 @@ def _build_parse_subparser(subparsers, base_subparser):
         Parsed the project and provides information on performance
         '''
     )
-    sub.set_defaults(cls=parse_task.ParseTask, which='parse',
-                     rpc_method='parse')
+    # from dbt.task.parse import ParseTask
+    # sub.set_defaults(cls=ParseTask, which='parse',
+    #                  rpc_method='parse')
     sub.add_argument('--write-manifest', action='store_true')
     sub.add_argument('--compile', action='store_true')
     return sub
@@ -561,8 +552,9 @@ def _build_docs_generate_subparser(subparsers, base_subparser):
     # it might look like docs_sub is the correct parents entry, but that
     # will cause weird errors about 'conflicting option strings'.
     generate_sub = subparsers.add_parser('generate', parents=[base_subparser])
-    generate_sub.set_defaults(cls=generate_task.GenerateTask,
-                              which='generate', rpc_method='docs.generate')
+    # from dbt.task.generate import GenerateTask
+    # generate_sub.set_defaults(cls=GenerateTask,
+    #                           which='generate', rpc_method='docs.generate')
     generate_sub.add_argument(
         '--no-compile',
         action='store_false',
@@ -686,8 +678,9 @@ def _build_seed_subparser(subparsers, base_subparser):
         Show a sample of the loaded data in the terminal
         '''
     )
-    seed_sub.set_defaults(cls=seed_task.SeedTask, which='seed',
-                          rpc_method='seed')
+    # from dbt.task.seed import SeedTask
+    # seed_sub.set_defaults(cls=SeedTask, which='seed',
+    #                       rpc_method='seed')
     return seed_sub
 
 
@@ -706,8 +699,9 @@ def _build_docs_serve_subparser(subparsers, base_subparser):
         dest='open_browser',
         action='store_false',
     )
-    serve_sub.set_defaults(cls=serve_task.ServeTask, which='serve',
-                           rpc_method=None)
+    # from dbt.task.serve import ServeTask
+    # serve_sub.set_defaults(cls=ServeTask, which='serve',
+    #                        rpc_method=None)
     return serve_sub
 
 
@@ -745,8 +739,8 @@ def _build_test_subparser(subparsers, base_subparser):
             even if they those resources have been explicitly selected.
         ''',
     )
-
-    sub.set_defaults(cls=test_task.TestTask, which='test', rpc_method='test')
+    # from dbt.task.test import TestTask
+    # sub.set_defaults(cls=TestTask, which='test', rpc_method='test')
     return sub
 
 
@@ -776,11 +770,12 @@ def _build_source_freshness_subparser(subparsers, base_subparser):
         Specify number of threads to use. Overrides settings in profiles.yml
         '''
     )
-    sub.set_defaults(
-        cls=freshness_task.FreshnessTask,
-        which='source-freshness',
-        rpc_method='source-freshness',
-    )
+    # from dbt.task.freshness import FreshnessTask
+    # sub.set_defaults(
+    #     cls=FreshnessTask,
+    #     which='source-freshness',
+    #     rpc_method='source-freshness',
+    # )
     sub.add_argument(
         '-s',
         '--select',
@@ -803,15 +798,16 @@ def _build_list_subparser(subparsers, base_subparser):
         ''',
         aliases=['ls'],
     )
-    sub.set_defaults(cls=list_task.ListTask, which='list', rpc_method=None)
-    resource_values: List[str] = [
-        str(s) for s in list_task.ListTask.ALL_RESOURCE_VALUES
-    ] + ['default', 'all']
-    sub.add_argument('--resource-type',
-                     choices=resource_values,
-                     action='append',
-                     default=[],
-                     dest='resource_types')
+    # from dbt.task.list import ListTask
+    # sub.set_defaults(cls=ListTask, which='list', rpc_method=None)
+    # resource_values: List[str] = [
+    #     str(s) for s in ListTask.ALL_RESOURCE_VALUES
+    # ] + ['default', 'all']
+    # sub.add_argument('--resource-type',
+    #                  choices=resource_values,
+    #                  action='append',
+    #                  default=[],
+    #                  dest='resource_types')
     sub.add_argument('--output',
                      choices=['json', 'name', 'path', 'selector'],
                      default='selector')
@@ -880,8 +876,9 @@ def _build_run_operation_subparser(subparsers, base_subparser):
         be a YAML string, eg. '{my_variable: my_value}'
         '''
     )
-    sub.set_defaults(cls=run_operation_task.RunOperationTask,
-                     which='run-operation', rpc_method='run-operation')
+    # from dbt.task.run_operation import RunOperationTask
+    # sub.set_defaults(cls=RunOperationTask,
+    #                  which='run-operation', rpc_method='run-operation')
     return sub
 
 
@@ -1044,7 +1041,7 @@ def parse_args(args, cls=DBTArgumentParser):
         Disables the static parser.
         '''
     )
-
+    from dbt.config.profile import DEFAULT_PROFILES_DIR
     p.add_argument(
         '--profiles-dir',
         default=None,
@@ -1167,3 +1164,6 @@ def parse_args(args, cls=DBTArgumentParser):
         p.exit(1)
 
     return parsed
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

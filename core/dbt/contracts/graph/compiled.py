@@ -1,23 +1,22 @@
-from dbt.contracts.graph.parsed import (
-    HasTestMetadata,
-    ParsedNode,
-    ParsedAnalysisNode,
-    ParsedSingularTestNode,
-    ParsedHookNode,
-    ParsedModelNode,
-    ParsedExposure,
-    ParsedMetric,
-    ParsedResource,
-    ParsedRPCNode,
-    ParsedSqlNode,
-    ParsedGenericTestNode,
-    ParsedSeedNode,
-    ParsedSnapshotNode,
-    ParsedSourceDefinition,
-    SeedConfig,
-    TestConfig,
-    same_seeds,
-)
+
+from dbt.contracts.graph.parsed import HasTestMetadata
+from dbt.contracts.graph.parsed import ParsedNode
+from dbt.contracts.graph.parsed import ParsedAnalysisNode
+from dbt.contracts.graph.parsed import ParsedSingularTestNode
+from dbt.contracts.graph.parsed import ParsedHookNode
+from dbt.contracts.graph.parsed import ParsedModelNode
+from dbt.contracts.graph.parsed import ParsedExposure
+from dbt.contracts.graph.parsed import ParsedMetric
+from dbt.contracts.graph.parsed import ParsedResource
+from dbt.contracts.graph.parsed import ParsedRPCNode
+from dbt.contracts.graph.parsed import ParsedSqlNode
+from dbt.contracts.graph.parsed import ParsedGenericTestNode
+from dbt.contracts.graph.parsed import ParsedSeedNode
+from dbt.contracts.graph.parsed import ParsedSourceDefinition
+from dbt.contracts.graph.parsed import ParsedSnapshotNode
+from dbt.contracts.graph.parsed import SeedConfig
+from dbt.contracts.graph.parsed import TestConfig
+from dbt.contracts.graph.parsed import same_seeds
 from dbt.node_types import NodeType
 from dbt.contracts.util import Replaceable
 
