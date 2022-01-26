@@ -10,7 +10,8 @@ from dbt import flags
 import dbt.clients.system
 import dbt.exceptions
 from dbt.adapters.factory import get_adapter, register_adapter
-from dbt.config import Project, Profile
+from dbt.config.project import Project
+from dbt.config.profile import Profile
 from dbt.config.renderer import DbtProjectYamlRenderer, ProfileRenderer
 from dbt.config.utils import parse_cli_vars
 from dbt.clients.yaml_helper import load_yaml_text

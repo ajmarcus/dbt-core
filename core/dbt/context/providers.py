@@ -12,7 +12,8 @@ from dbt.adapters.factory import (
 )
 from dbt.clients import agate_helper
 from dbt.clients.jinja import get_rendered, MacroGenerator, MacroStack
-from dbt.config import RuntimeConfig, Project
+from dbt.config.project import Project
+from dbt.config.runtime import RuntimeConfig
 from .base import contextmember, contextproperty, Var
 from .configured import FQNLookup
 from .context_config import ContextConfig
@@ -53,7 +54,7 @@ from dbt.exceptions import (
     raise_parsing_error,
     disallow_secret_env_var,
 )
-from dbt.config import IsFQNResource
+from dbt.config.project import IsFQNResource
 from dbt.node_types import NodeType
 
 from dbt.utils import (

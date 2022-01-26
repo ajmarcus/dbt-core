@@ -94,3 +94,7 @@ venv/
 
 # vscode
 .vscode/
+
+# cli profile output
+scripts/profile_cli.svg
+scripts/profile_cli.txt

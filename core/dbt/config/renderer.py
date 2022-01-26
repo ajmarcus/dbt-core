@@ -1,9 +1,5 @@
 from typing import Dict, Any, Tuple, Optional, Union, Callable
 
-from dbt.clients.jinja import get_rendered, catch_jinja
-from dbt.context.target import TargetContext
-from dbt.context.secret import SecretContext
-from dbt.context.base import BaseContext
 from dbt.contracts.connection import HasCredentials
 from dbt.exceptions import (
     DbtProjectError, CompilationException, RecursionException
@@ -39,6 +35,7 @@ class BaseRenderer:
         if not isinstance(value, str):
             return value
         try:
+            from dbt.clients.jinja import get_rendered, catch_jinja
             with catch_jinja():
                 return get_rendered(value, self.context, native=True)
         except CompilationException as exc:
@@ -112,8 +109,10 @@ class DbtProjectYamlRenderer(BaseRenderer):
         if cli_vars is None:
             cli_vars = {}
         if profile:
+            from dbt.context.target import TargetContext
             self.ctx_obj = TargetContext(profile, cli_vars)
         else:
+            from dbt.context.base import BaseContext
             self.ctx_obj = BaseContext(cli_vars)  # type:ignore
         context = self.ctx_obj.to_dict()
         super().__init__(context)
@@ -190,6 +189,7 @@ class SecretRenderer(BaseRenderer):
         # object in order to retrieve the env_vars.
         if cli_vars is None:
             cli_vars = {}
+        from dbt.context.secret import SecretContext
         self.ctx_obj = SecretContext(cli_vars)
         context = self.ctx_obj.to_dict()
         super().__init__(context)

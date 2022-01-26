@@ -3,7 +3,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import List, Iterator, Dict, Any, TypeVar, Generic
 
-from dbt.config import RuntimeConfig, Project, IsFQNResource
+from dbt.config.project import Project, IsFQNResource
+from dbt.config.runtime import RuntimeConfig
 from dbt.contracts.graph.model_config import BaseConfig, get_config_for
 from dbt.exceptions import InternalException
 from dbt.node_types import NodeType

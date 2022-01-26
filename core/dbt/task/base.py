@@ -6,7 +6,6 @@ from typing import Type, Union, Dict, Any, Optional
 
 from dbt import tracking
 from dbt import flags
-from dbt.contracts.graph.manifest import Manifest
 from dbt.contracts.results import (
     NodeStatus, RunResult, collect_timing_info, RunStatus, RunningStatus
 )
@@ -27,7 +26,8 @@ from dbt.events.types import (
 from .printer import print_run_result_error
 
 from dbt.adapters.factory import register_adapter
-from dbt.config import RuntimeConfig, Project
+from dbt.config.project import Project
+from dbt.config.runtime import RuntimeConfig
 from dbt.config.profile import read_profile
 import dbt.exceptions
 
@@ -182,6 +182,7 @@ class ExecutionContext:
 
 
 class BaseRunner(metaclass=ABCMeta):
+    from dbt.contracts.graph.manifest import Manifest
     def __init__(self, config, adapter, node, node_index, num_nodes):
         self.config = config
         self.adapter = adapter

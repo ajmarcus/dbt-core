@@ -4,4 +4,5 @@ import dbt.main
 import logging
 
 if __name__ == "__main__":
-    dbt.main.main(sys.argv[1:])
+    # dbt.main.main(sys.argv[1:])
+    dbt.main.main(["build"])

@@ -15,29 +15,11 @@ from dbt.events.types import (
     MainTrackingUserState, MainStackTrace
 )
 import dbt.flags as flags
-import dbt.task.build as build_task
-import dbt.task.clean as clean_task
-import dbt.task.compile as compile_task
-import dbt.task.debug as debug_task
-import dbt.task.deps as deps_task
-import dbt.task.freshness as freshness_task
-import dbt.task.generate as generate_task
-import dbt.task.init as init_task
-import dbt.task.list as list_task
-import dbt.task.parse as parse_task
-import dbt.task.run as run_task
-import dbt.task.run_operation as run_operation_task
-import dbt.task.seed as seed_task
-import dbt.task.serve as serve_task
-import dbt.task.snapshot as snapshot_task
-import dbt.task.test as test_task
 from dbt.profiler import profiler
-from dbt.adapters.factory import reset_adapters, cleanup_connections
 
 import dbt.tracking
 
 from dbt.utils import ExitCodes
-from dbt.config.profile import DEFAULT_PROFILES_DIR, read_user_config
 from dbt.exceptions import (
     InternalException,
     NotImplementedException,
@@ -155,6 +137,7 @@ def handle(args):
 
 @contextmanager
 def adapter_management():
+    from dbt.adapters.factory import reset_adapters, cleanup_connections
     reset_adapters()
     try:
         yield
@@ -165,7 +148,7 @@ def adapter_management():
 def handle_and_check(args):
     with log_manager.applicationbound():
         parsed = parse_args(args)
-
+        from dbt.config.profile import read_user_config
         # Set flags from args, user config, and env vars
         user_config = read_user_config(flags.PROFILES_DIR)  # This is read again later
         flags.set_from_args(parsed, user_config)
@@ -259,7 +242,7 @@ def _build_base_subparser():
         Default is the current working directory and its parents.
         '''
     )
-
+    from dbt.config.profile import DEFAULT_PROFILES_DIR
     base_subparser.add_argument(
         '--profiles-dir',
         default=None,
@@ -331,7 +314,7 @@ def _build_source_subparser(subparsers, base_subparser):
     return source_sub
 
 
-def _build_init_subparser(subparsers, base_subparser):
+def _build_init_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'init',
         parents=[base_subparser],
@@ -355,11 +338,14 @@ def _build_init_subparser(subparsers, base_subparser):
         Skip interative profile setup.
         '''
     )
-    sub.set_defaults(cls=init_task.InitTask, which='init', rpc_method=None)
+    # Only set defaults if running the relevant subcommand
+    if which == 'init':
+        import dbt.task.init as init_task
+        sub.set_defaults(cls=init_task.InitTask, which='init', rpc_method=None)
     return sub
 
 
-def _build_build_subparser(subparsers, base_subparser):
+def _build_build_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'build',
         parents=[base_subparser],
@@ -367,11 +353,22 @@ def _build_build_subparser(subparsers, base_subparser):
         Run all Seeds, Models, Snapshots, and tests in DAG order
         '''
     )
-    sub.set_defaults(
-        cls=build_task.BuildTask,
-        which='build',
-        rpc_method='build'
-    )
+    # Only set defaults if running the relevant subcommand
+    if which == 'build':
+        import dbt.task.build as build_task
+        sub.set_defaults(
+            cls=build_task.BuildTask,
+            which='build',
+            rpc_method='build'
+        )
+        resource_values: List[str] = [
+            str(s) for s in build_task.BuildTask.ALL_RESOURCE_VALUES
+        ] + ['all']
+        sub.add_argument('--resource-type',
+                        choices=resource_values,
+                        action='append',
+                        default=[],
+                        dest='resource_types')
     sub.add_argument(
         '-x',
         '--fail-fast',
@@ -399,14 +396,6 @@ def _build_build_subparser(subparsers, base_subparser):
         ''',
     )
 
-    resource_values: List[str] = [
-        str(s) for s in build_task.BuildTask.ALL_RESOURCE_VALUES
-    ] + ['all']
-    sub.add_argument('--resource-type',
-                     choices=resource_values,
-                     action='append',
-                     default=[],
-                     dest='resource_types')
     # explicity don't support --models
     sub.add_argument(
         '-s',
@@ -421,7 +410,7 @@ def _build_build_subparser(subparsers, base_subparser):
     return sub
 
 
-def _build_clean_subparser(subparsers, base_subparser):
+def _build_clean_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'clean',
         parents=[base_subparser],
@@ -430,11 +419,14 @@ def _build_clean_subparser(subparsers, base_subparser):
         (usually the dbt_packages and target directories.)
         '''
     )
-    sub.set_defaults(cls=clean_task.CleanTask, which='clean', rpc_method=None)
+    # Only set defaults if running the relevant subcommand
+    if which == 'clean':
+        import dbt.task.clean as clean_task
+        sub.set_defaults(cls=clean_task.CleanTask, which='clean', rpc_method=None)
     return sub
 
 
-def _build_debug_subparser(subparsers, base_subparser):
+def _build_debug_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'debug',
         parents=[base_subparser],
@@ -452,11 +444,14 @@ def _build_debug_subparser(subparsers, base_subparser):
         '''
     )
     _add_version_check(sub)
-    sub.set_defaults(cls=debug_task.DebugTask, which='debug', rpc_method=None)
+    # Only set defaults if running the relevant subcommand
+    if which == 'debug':
+        import dbt.task.debug as debug_task
+        sub.set_defaults(cls=debug_task.DebugTask, which='debug', rpc_method=None)
     return sub
 
 
-def _build_deps_subparser(subparsers, base_subparser):
+def _build_deps_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'deps',
         parents=[base_subparser],
@@ -464,11 +459,14 @@ def _build_deps_subparser(subparsers, base_subparser):
         Pull the most recent version of the dependencies listed in packages.yml
         '''
     )
-    sub.set_defaults(cls=deps_task.DepsTask, which='deps', rpc_method='deps')
+    # Only set defaults if running the relevant subcommand
+    if which == 'deps':
+        import dbt.task.deps as deps_task
+        sub.set_defaults(cls=deps_task.DepsTask, which='deps', rpc_method='deps')
     return sub
 
 
-def _build_snapshot_subparser(subparsers, base_subparser):
+def _build_snapshot_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'snapshot',
         parents=[base_subparser],
@@ -485,8 +483,11 @@ def _build_snapshot_subparser(subparsers, base_subparser):
         Overrides settings in profiles.yml.
         '''
     )
-    sub.set_defaults(cls=snapshot_task.SnapshotTask, which='snapshot',
-                     rpc_method='snapshot')
+    # Only set defaults if running the relevant subcommand
+    if which == 'snapshot':
+        import dbt.task.snapshot as snapshot_task
+        sub.set_defaults(cls=snapshot_task.SnapshotTask, which='snapshot',
+                        rpc_method='snapshot')
     return sub
 
 
@@ -505,7 +506,7 @@ def _add_defer_argument(*subparsers):
         )
 
 
-def _build_run_subparser(subparsers, base_subparser):
+def _build_run_subparser(which, subparsers, base_subparser):
     run_sub = subparsers.add_parser(
         'run',
         parents=[base_subparser],
@@ -522,12 +523,14 @@ def _build_run_subparser(subparsers, base_subparser):
         Stop execution upon a first failure.
         '''
     )
-
-    run_sub.set_defaults(cls=run_task.RunTask, which='run', rpc_method='run')
+    # Only set defaults if running the relevant subcommand
+    if which == 'run':
+        import dbt.task.run as run_task
+        run_sub.set_defaults(cls=run_task.RunTask, which='run', rpc_method='run')
     return run_sub
 
 
-def _build_compile_subparser(subparsers, base_subparser):
+def _build_compile_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'compile',
         parents=[base_subparser],
@@ -536,13 +539,16 @@ def _build_compile_subparser(subparsers, base_subparser):
         Compiled SQL files are written to the target/ directory.
         '''
     )
-    sub.set_defaults(cls=compile_task.CompileTask, which='compile',
-                     rpc_method='compile')
+    # Only set defaults if running the relevant subcommand
+    if which == 'compile':
+        import dbt.task.compile as compile_task
+        sub.set_defaults(cls=compile_task.CompileTask, which='compile',
+                        rpc_method='compile')
     sub.add_argument('--parse-only', action='store_true')
     return sub
 
 
-def _build_parse_subparser(subparsers, base_subparser):
+def _build_parse_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'parse',
         parents=[base_subparser],
@@ -550,19 +556,25 @@ def _build_parse_subparser(subparsers, base_subparser):
         Parsed the project and provides information on performance
         '''
     )
-    sub.set_defaults(cls=parse_task.ParseTask, which='parse',
-                     rpc_method='parse')
+    # Only set defaults if running the relevant subcommand
+    if which == 'parse':
+        import dbt.task.parse as parse_task
+        sub.set_defaults(cls=parse_task.ParseTask, which='parse',
+                        rpc_method='parse')
     sub.add_argument('--write-manifest', action='store_true')
     sub.add_argument('--compile', action='store_true')
     return sub
 
 
-def _build_docs_generate_subparser(subparsers, base_subparser):
+def _build_docs_generate_subparser(which, subparsers, base_subparser):
     # it might look like docs_sub is the correct parents entry, but that
     # will cause weird errors about 'conflicting option strings'.
     generate_sub = subparsers.add_parser('generate', parents=[base_subparser])
-    generate_sub.set_defaults(cls=generate_task.GenerateTask,
-                              which='generate', rpc_method='docs.generate')
+    # Only set defaults if running the relevant subcommand
+    if which == 'generate':
+        import dbt.task.generate as generate_task
+        generate_sub.set_defaults(cls=generate_task.GenerateTask,
+                                which='generate', rpc_method='docs.generate')
     generate_sub.add_argument(
         '--no-compile',
         action='store_false',
@@ -664,7 +676,7 @@ def _add_common_arguments(*subparsers):
         _add_version_check(sub)
 
 
-def _build_seed_subparser(subparsers, base_subparser):
+def _build_seed_subparser(which, subparsers, base_subparser):
     seed_sub = subparsers.add_parser(
         'seed',
         parents=[base_subparser],
@@ -686,12 +698,15 @@ def _build_seed_subparser(subparsers, base_subparser):
         Show a sample of the loaded data in the terminal
         '''
     )
-    seed_sub.set_defaults(cls=seed_task.SeedTask, which='seed',
-                          rpc_method='seed')
+    # Only set defaults if running the relevant subcommand
+    if which == 'seed':
+        import dbt.task.seed as seed_task
+        seed_sub.set_defaults(cls=seed_task.SeedTask, which='seed',
+                            rpc_method='seed')
     return seed_sub
 
 
-def _build_docs_serve_subparser(subparsers, base_subparser):
+def _build_docs_serve_subparser(which, subparsers, base_subparser):
     serve_sub = subparsers.add_parser('serve', parents=[base_subparser])
     serve_sub.add_argument(
         '--port',
@@ -706,12 +721,15 @@ def _build_docs_serve_subparser(subparsers, base_subparser):
         dest='open_browser',
         action='store_false',
     )
-    serve_sub.set_defaults(cls=serve_task.ServeTask, which='serve',
-                           rpc_method=None)
+    # Only set defaults if running the relevant subcommand
+    if which == 'serve':
+        import dbt.task.serve as serve_task
+        serve_sub.set_defaults(cls=serve_task.ServeTask, which='serve',
+                            rpc_method=None)
     return serve_sub
 
 
-def _build_test_subparser(subparsers, base_subparser):
+def _build_test_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'test',
         parents=[base_subparser],
@@ -745,12 +763,14 @@ def _build_test_subparser(subparsers, base_subparser):
             even if they those resources have been explicitly selected.
         ''',
     )
-
-    sub.set_defaults(cls=test_task.TestTask, which='test', rpc_method='test')
+    # Only set defaults if running the relevant subcommand
+    if which == 'test':
+        import dbt.task.test as test_task
+        sub.set_defaults(cls=test_task.TestTask, which='test', rpc_method='test')
     return sub
 
 
-def _build_source_freshness_subparser(subparsers, base_subparser):
+def _build_source_freshness_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'freshness',
         parents=[base_subparser],
@@ -776,11 +796,14 @@ def _build_source_freshness_subparser(subparsers, base_subparser):
         Specify number of threads to use. Overrides settings in profiles.yml
         '''
     )
-    sub.set_defaults(
-        cls=freshness_task.FreshnessTask,
-        which='source-freshness',
-        rpc_method='source-freshness',
-    )
+    # Only set defaults if running the relevant subcommand
+    if which == 'freshness' or which == 'snapshot-freshness':
+        import dbt.task.freshness as freshness_task
+        sub.set_defaults(
+            cls=freshness_task.FreshnessTask,
+            which='source-freshness',
+            rpc_method='source-freshness',
+        )
     sub.add_argument(
         '-s',
         '--select',
@@ -794,7 +817,7 @@ def _build_source_freshness_subparser(subparsers, base_subparser):
     return sub
 
 
-def _build_list_subparser(subparsers, base_subparser):
+def _build_list_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'list',
         parents=[base_subparser],
@@ -803,15 +826,18 @@ def _build_list_subparser(subparsers, base_subparser):
         ''',
         aliases=['ls'],
     )
-    sub.set_defaults(cls=list_task.ListTask, which='list', rpc_method=None)
-    resource_values: List[str] = [
-        str(s) for s in list_task.ListTask.ALL_RESOURCE_VALUES
-    ] + ['default', 'all']
-    sub.add_argument('--resource-type',
-                     choices=resource_values,
-                     action='append',
-                     default=[],
-                     dest='resource_types')
+    # Only set defaults if running the relevant subcommand
+    if which == 'list' or which == 'ls':
+        import dbt.task.list as list_task
+        sub.set_defaults(cls=list_task.ListTask, which='list', rpc_method=None)
+        resource_values: List[str] = [
+            str(s) for s in list_task.ListTask.ALL_RESOURCE_VALUES
+        ] + ['default', 'all']
+        sub.add_argument('--resource-type',
+                        choices=resource_values,
+                        action='append',
+                        default=[],
+                        dest='resource_types')
     sub.add_argument('--output',
                      choices=['json', 'name', 'path', 'selector'],
                      default='selector')
@@ -855,7 +881,7 @@ def _build_list_subparser(subparsers, base_subparser):
     return sub
 
 
-def _build_run_operation_subparser(subparsers, base_subparser):
+def _build_run_operation_subparser(which, subparsers, base_subparser):
     sub = subparsers.add_parser(
         'run-operation',
         parents=[base_subparser],
@@ -880,8 +906,11 @@ def _build_run_operation_subparser(subparsers, base_subparser):
         be a YAML string, eg. '{my_variable: my_value}'
         '''
     )
-    sub.set_defaults(cls=run_operation_task.RunOperationTask,
-                     which='run-operation', rpc_method='run-operation')
+    # Only set defaults if running the relevant subcommand
+    if which == 'run-operation':
+        import dbt.task.run_operation as run_operation_task
+        sub.set_defaults(cls=run_operation_task.RunOperationTask,
+                        which='run-operation', rpc_method='run-operation')
     return sub
 
 
@@ -1044,7 +1073,7 @@ def parse_args(args, cls=DBTArgumentParser):
         Disables the static parser.
         '''
     )
-
+    from dbt.config.profile import DEFAULT_PROFILES_DIR
     p.add_argument(
         '--profiles-dir',
         default=None,
@@ -1087,6 +1116,10 @@ def parse_args(args, cls=DBTArgumentParser):
     subs = p.add_subparsers(title="Available sub-commands")
 
     base_subparser = _build_base_subparser()
+    if len(args) == 0:
+        which = ''
+    else:
+        which = args[0]
 
     # make the subcommands that have their own subcommands
     docs_sub = _build_docs_subparser(subs, base_subparser)
@@ -1094,20 +1127,20 @@ def parse_args(args, cls=DBTArgumentParser):
     source_sub = _build_source_subparser(subs, base_subparser)
     source_subs = source_sub.add_subparsers(title="Available sub-commands")
 
-    _build_init_subparser(subs, base_subparser)
-    _build_clean_subparser(subs, base_subparser)
-    _build_debug_subparser(subs, base_subparser)
-    _build_deps_subparser(subs, base_subparser)
-    _build_list_subparser(subs, base_subparser)
+    _build_init_subparser(which, subs, base_subparser)
+    _build_clean_subparser(which, subs, base_subparser)
+    _build_debug_subparser(which, subs, base_subparser)
+    _build_deps_subparser(which, subs, base_subparser)
+    _build_list_subparser(which, subs, base_subparser)
 
-    build_sub = _build_build_subparser(subs, base_subparser)
-    snapshot_sub = _build_snapshot_subparser(subs, base_subparser)
-    run_sub = _build_run_subparser(subs, base_subparser)
-    compile_sub = _build_compile_subparser(subs, base_subparser)
-    parse_sub = _build_parse_subparser(subs, base_subparser)
-    generate_sub = _build_docs_generate_subparser(docs_subs, base_subparser)
-    test_sub = _build_test_subparser(subs, base_subparser)
-    seed_sub = _build_seed_subparser(subs, base_subparser)
+    build_sub = _build_build_subparser(which, subs, base_subparser)
+    snapshot_sub = _build_snapshot_subparser(which, subs, base_subparser)
+    run_sub = _build_run_subparser(which, subs, base_subparser)
+    compile_sub = _build_compile_subparser(which, subs, base_subparser)
+    parse_sub = _build_parse_subparser(which, subs, base_subparser)
+    generate_sub = _build_docs_generate_subparser(which, docs_subs, base_subparser)
+    test_sub = _build_test_subparser(which, subs, base_subparser)
+    seed_sub = _build_seed_subparser(which, subs, base_subparser)
     # --threads, --no-version-check
     _add_common_arguments(run_sub, compile_sub, generate_sub, test_sub,
                           seed_sub, parse_sub, build_sub)
@@ -1120,9 +1153,9 @@ def parse_args(args, cls=DBTArgumentParser):
     # --full-refresh
     _add_table_mutability_arguments(run_sub, compile_sub, build_sub)
 
-    _build_docs_serve_subparser(docs_subs, base_subparser)
-    _build_source_freshness_subparser(source_subs, base_subparser)
-    _build_run_operation_subparser(subs, base_subparser)
+    _build_docs_serve_subparser(which, docs_subs, base_subparser)
+    _build_source_freshness_subparser(which, source_subs, base_subparser)
+    _build_run_operation_subparser(which, subs, base_subparser)
 
     if len(args) == 0:
         p.print_help()

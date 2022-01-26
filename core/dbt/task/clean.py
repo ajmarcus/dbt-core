@@ -8,7 +8,7 @@ from dbt.events.functions import fire_event
 from dbt.events.types import (
     CheckCleanPath, ConfirmCleanPath, ProtectedCleanPath, FinishedCleanPaths
 )
-from dbt.config import UnsetProfileConfig
+from dbt.config.runtime import UnsetProfileConfig
 
 
 class CleanTask(BaseTask):

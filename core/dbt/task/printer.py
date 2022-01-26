@@ -13,9 +13,6 @@ from dbt.events.types import (
 from dbt.tracking import InvocationProcessor
 from dbt.events.format import pluralize
 
-from dbt.contracts.results import (
-    NodeStatus
-)
 from dbt.node_types import NodeType
 
 
@@ -39,6 +36,7 @@ def get_counts(flat_nodes) -> str:
 
 
 def interpret_run_result(result) -> str:
+    from dbt.contracts.results import NodeStatus
     if result.status in (NodeStatus.Error, NodeStatus.Fail):
         return 'error'
     elif result.status == NodeStatus.Skipped:
@@ -77,6 +75,7 @@ def print_run_result_error(
         with TextOnly():
             fire_event(EmptyLine())
 
+    from dbt.contracts.results import NodeStatus
     if result.status == NodeStatus.Fail or (
         is_warning and result.status == NodeStatus.Warn
     ):
@@ -124,6 +123,7 @@ def print_run_result_error(
 
 def print_run_end_messages(results, keyboard_interrupt: bool = False) -> None:
     errors, warnings = [], []
+    from dbt.contracts.results import NodeStatus
     for r in results:
         if r.status in (
             NodeStatus.RuntimeErr,
