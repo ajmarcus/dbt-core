@@ -4,7 +4,7 @@ from typing import (
     Iterable, Dict, Optional, Set, List, Any
 )
 from dbt.adapters.factory import get_adapter
-from dbt.config import RuntimeConfig
+from dbt.config.runtime import RuntimeConfig
 from dbt.context.context_config import (
     BaseContextConfigGenerator,
     ContextConfigGenerator,

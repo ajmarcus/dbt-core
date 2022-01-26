@@ -27,8 +27,9 @@ from dbt.events.types import (
 from .printer import print_run_result_error
 
 from dbt.adapters.factory import register_adapter
-from dbt.config import RuntimeConfig, Project
 from dbt.config.profile import read_profile
+from dbt.config.project import Project
+from dbt.config.runtime import RuntimeConfig
 import dbt.exceptions
 
 

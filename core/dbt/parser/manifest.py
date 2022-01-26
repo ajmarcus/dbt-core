@@ -35,7 +35,8 @@ from dbt.node_types import NodeType
 from dbt.clients.jinja import get_rendered, MacroStack
 from dbt.clients.jinja_static import statically_extract_macro_calls
 from dbt.clients.system import make_directory
-from dbt.config import Project, RuntimeConfig
+from dbt.config.project import Project
+from dbt.config.runtime import RuntimeConfig
 from dbt.context.docs import generate_runtime_docs_context
 from dbt.context.macro_resolver import MacroResolver, TestMacroNamespace
 from dbt.context.configured import generate_macro_context

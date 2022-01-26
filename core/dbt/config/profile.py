@@ -19,8 +19,6 @@ from dbt.events.types import MissingProfileTarget
 from dbt.events.functions import fire_event
 from dbt.utils import coerce_dict_str
 
-from .renderer import ProfileRenderer
-
 DEFAULT_THREADS = 1
 
 DEFAULT_PROFILES_DIR = os.path.join(os.path.expanduser('~'), '.dbt')
@@ -275,7 +273,8 @@ class Profile(HasCredentials):
         raw_profile: Dict[str, Any],
         profile_name: str,
         target_override: Optional[str],
-        renderer: ProfileRenderer,
+        # Use Any type to improve cli performance
+        renderer: Any, # dbt.config.renderer.ProfileRenderer
     ) -> Tuple[str, Dict[str, Any]]:
         """This is a containment zone for the hateful way we're rendering
         profiles.
@@ -311,7 +310,8 @@ class Profile(HasCredentials):
         cls,
         raw_profile: Dict[str, Any],
         profile_name: str,
-        renderer: ProfileRenderer,
+        # Use Any type to improve cli performance
+        renderer: Any, # dbt.config.renderer.ProfileRenderer
         user_config: Optional[Dict[str, Any]] = None,
         target_override: Optional[str] = None,
         threads_override: Optional[int] = None,
@@ -365,7 +365,8 @@ class Profile(HasCredentials):
         cls,
         raw_profiles: Dict[str, Any],
         profile_name: str,
-        renderer: ProfileRenderer,
+        # Use Any type to improve cli performance
+        renderer: Any, # dbt.config.renderer.ProfileRenderer
         target_override: Optional[str] = None,
         threads_override: Optional[int] = None,
     ) -> 'Profile':
@@ -415,7 +416,8 @@ class Profile(HasCredentials):
     def render_from_args(
         cls,
         args: Any,
-        renderer: ProfileRenderer,
+        # Use Any type to improve cli performance
+        renderer: Any, # dbt.config.renderer.ProfileRenderer
         project_profile_name: Optional[str],
     ) -> 'Profile':
         """Given the raw profiles as read from disk and the name of the desired

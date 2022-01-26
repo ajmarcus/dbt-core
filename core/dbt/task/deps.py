@@ -2,7 +2,7 @@ import dbt.utils
 import dbt.deprecations
 import dbt.exceptions
 
-from dbt.config import UnsetProfileConfig
+from dbt.config.runtime import UnsetProfileConfig
 from dbt.config.renderer import DbtProjectYamlRenderer
 from dbt.deps.base import downloads_directory
 from dbt.deps.resolver import resolve_packages

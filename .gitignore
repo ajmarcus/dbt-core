@@ -94,3 +94,6 @@ venv/
 
 # vscode
 .vscode/
+
+# cli profiling flamegraphs
+profile_cli_*.svg

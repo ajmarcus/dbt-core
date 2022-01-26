@@ -3,8 +3,9 @@ from typing import Dict, List, NoReturn, Union, Type, Iterator, Set
 
 from dbt.exceptions import raise_dependency_error, InternalException
 
-from dbt.config import Project, RuntimeConfig
+from dbt.config.project import Project
 from dbt.config.renderer import DbtProjectYamlRenderer
+from dbt.config.runtime import RuntimeConfig
 from dbt.deps.base import BasePackage, PinnedPackage, UnpinnedPackage
 from dbt.deps.local import LocalUnpinnedPackage
 from dbt.deps.git import GitUnpinnedPackage

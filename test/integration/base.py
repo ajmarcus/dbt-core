@@ -21,7 +21,7 @@ from dbt import flags
 from dbt.deprecations import reset_deprecations
 from dbt.adapters.factory import get_adapter, reset_adapters, register_adapter
 from dbt.clients.jinja import template_cache
-from dbt.config import RuntimeConfig
+from dbt.config.runtime import RuntimeConfig
 from dbt.context import providers
 from dbt.logger import log_manager
 from dbt.events.functions import (

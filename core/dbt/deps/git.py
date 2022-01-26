@@ -3,7 +3,7 @@ import hashlib
 from typing import List, Optional
 
 from dbt.clients import git, system
-from dbt.config import Project
+from dbt.config.project import Project
 from dbt.contracts.project import (
     ProjectPackageMetadata,
     GitPackage,
