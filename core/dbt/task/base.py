@@ -76,7 +76,7 @@ class BaseTask(metaclass=ABCMeta):
 
     def __init__(self, args, config):
         self.args = args
-        self.args.single_threaded = False
+        self.args.single_threaded = True
         self.config = config
 
     @classmethod
@@ -455,7 +455,8 @@ class BaseRunner(metaclass=ABCMeta):
                 print_run_result_error(result=self.skip_cause, newline=False)
                 if self.skip_cause is None:  # mypy appeasement
                     raise InternalException(
-                        "Skip cause not set but skip was somehow caused by " "an ephemeral failure"
+                        "Skip cause not set but skip was somehow caused by "
+                        "an ephemeral failure"
                     )
                 # set an error so dbt will exit with an error code
                 error_message = (

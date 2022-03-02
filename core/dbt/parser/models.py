@@ -19,7 +19,6 @@ from dbt.parser.base import SimpleSQLParser
 from dbt.parser.search import FileBlock
 import dbt.tracking as tracking
 from dbt import utils
-from dbt_extractor import ExtractionError, py_extract_from_source  # type: ignore
 from functools import reduce
 from itertools import chain
 import random
@@ -93,7 +92,9 @@ class ModelParser(SimpleSQLParser[ParsedModelNode]):
                 model_parser_copy = self.partial_deepcopy()
                 exp_sample_node = deepcopy(node)
                 exp_sample_config = deepcopy(config)
-                model_parser_copy.populate(exp_sample_node, exp_sample_config, experimental_sample)
+                model_parser_copy.populate(
+                    exp_sample_node, exp_sample_config, experimental_sample
+                )
         # use the experimental parser exclusively if the flag is on
         if flags.USE_EXPERIMENTAL_PARSER:
             statically_parsed = self.run_experimental_parser(node)
@@ -186,17 +187,8 @@ class ModelParser(SimpleSQLParser[ParsedModelNode]):
             fire_event(StaticParsingMacroOverrideDetected(path=node.path))
             return "has_banned_macro"
 
-        # run the stable static parser and return the results
-        try:
-            statically_parsed = py_extract_from_source(node.raw_sql)
-            fire_event(StaticParserSuccess(path=node.path))
-            return _shift_sources(statically_parsed)
-        # if we want information on what features are barring the static
-        # parser from reading model files, this is where we would add that
-        # since that information is stored in the `ExtractionError`.
-        except ExtractionError:
-            fire_event(StaticParserFailure(path=node.path))
-            return "cannot_parse"
+        fire_event(StaticParserFailure(path=node.path))
+        return "cannot_parse"
 
     def run_experimental_parser(
         self, node: ParsedModelNode
@@ -209,20 +201,8 @@ class ModelParser(SimpleSQLParser[ParsedModelNode]):
             fire_event(StaticParsingMacroOverrideDetected(path=node.path))
             return "has_banned_macro"
 
-        # run the experimental parser and return the results
-        try:
-            # for now, this line calls the stable static parser since there are no
-            # experimental features. Change `py_extract_from_source` to the new
-            # experimental call when we add additional features.
-            experimentally_parsed = py_extract_from_source(node.raw_sql)
-            fire_event(ExperimentalParserSuccess(path=node.path))
-            return _shift_sources(experimentally_parsed)
-        # if we want information on what features are barring the experimental
-        # parser from reading model files, this is where we would add that
-        # since that information is stored in the `ExtractionError`.
-        except ExtractionError:
-            fire_event(ExperimentalParserFailure(path=node.path))
-            return "cannot_parse"
+        fire_event(ExperimentalParserFailure(path=node.path))
+        return "cannot_parse"
 
     # checks for banned macros
     def _has_banned_macro(self, node: ParsedModelNode) -> bool:
@@ -233,20 +213,28 @@ class ModelParser(SimpleSQLParser[ParsedModelNode]):
 
         all_banned_macro_keys: Iterator[str] = chain.from_iterable(
             map(
-                lambda name: [f"macro.{project_name}.{name}", f"macro.{root_project_name}.{name}"],
+                lambda name: [
+                    f"macro.{project_name}.{name}",
+                    f"macro.{root_project_name}.{name}",
+                ],
                 banned_macros,
             )
         )
 
         return reduce(
-            lambda z, key: z or (key in self.manifest.macros), all_banned_macro_keys, False
+            lambda z, key: z or (key in self.manifest.macros),
+            all_banned_macro_keys,
+            False,
         )
 
     # this method updates the model node rendered and unrendered config as well
     # as the node object. Used to populate these values when circumventing jinja
     # rendering like the static parser.
     def populate(
-        self, node: ParsedModelNode, config: ContextConfig, statically_parsed: Dict[str, Any]
+        self,
+        node: ParsedModelNode,
+        config: ContextConfig,
+        statically_parsed: Dict[str, Any],
     ):
         # manually fit configs in
         config._config_call_dict = _get_config_call_dict(statically_parsed)
@@ -268,7 +256,9 @@ class ModelParser(SimpleSQLParser[ParsedModelNode]):
 
     # the manifest is often huge so this method avoids deepcopying it
     def partial_deepcopy(self):
-        return ModelParser(deepcopy(self.project), self.manifest, deepcopy(self.root_project))
+        return ModelParser(
+            deepcopy(self.project), self.manifest, deepcopy(self.root_project)
+        )
 
 
 # pure function. safe to use elsewhere, but unlikely to be useful outside this file.
@@ -300,7 +290,9 @@ def _get_exp_sample_result(
     node: ParsedModelNode,
     config: ContextConfig,
 ) -> List[str]:
-    result: List[Tuple[int, str]] = _get_sample_result(sample_node, sample_config, node, config)
+    result: List[Tuple[int, str]] = _get_sample_result(
+        sample_node, sample_config, node, config
+    )
 
     def process(codemsg):
         code, msg = codemsg
@@ -316,7 +308,9 @@ def _get_stable_sample_result(
     node: ParsedModelNode,
     config: ContextConfig,
 ) -> List[str]:
-    result: List[Tuple[int, str]] = _get_sample_result(sample_node, sample_config, node, config)
+    result: List[Tuple[int, str]] = _get_sample_result(
+        sample_node, sample_config, node, config
+    )
 
     def process(codemsg):
         code, msg = codemsg

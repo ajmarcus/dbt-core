@@ -2,7 +2,7 @@ import abc
 import os
 
 # multiprocessing.RLock is a function returning this type
-from multiprocessing.synchronize import RLock
+# from multiprocessing.synchronize import RLock
 from threading import get_ident
 from typing import Dict, Tuple, Hashable, Optional, ContextManager, List, Union
 
@@ -54,7 +54,7 @@ class BaseConnectionManager(metaclass=abc.ABCMeta):
     def __init__(self, profile: AdapterRequiredConfig):
         self.profile = profile
         self.thread_connections: Dict[Hashable, Connection] = {}
-        self.lock: RLock = flags.MP_CONTEXT.RLock()
+        self.lock = flags.MP_CONTEXT.RLock()
         self.query_header: Optional[MacroQueryStringSetter] = None
 
     def set_query_header(self, manifest: Manifest) -> None:
@@ -70,7 +70,9 @@ class BaseConnectionManager(metaclass=abc.ABCMeta):
         key = self.get_thread_identifier()
         with self.lock:
             if key not in self.thread_connections:
-                raise dbt.exceptions.InvalidConnectionException(key, list(self.thread_connections))
+                raise dbt.exceptions.InvalidConnectionException(
+                    key, list(self.thread_connections)
+                )
             return self.thread_connections[key]
 
     def set_thread_connection(self, conn: Connection) -> None:
@@ -176,7 +178,9 @@ class BaseConnectionManager(metaclass=abc.ABCMeta):
         This should be thread-safe, or hold the lock if necessary. The given
         connection should not be in either in_use or available.
         """
-        raise dbt.exceptions.NotImplementedException("`open` is not implemented for this adapter!")
+        raise dbt.exceptions.NotImplementedException(
+            "`open` is not implemented for this adapter!"
+        )
 
     def release(self) -> None:
         with self.lock:

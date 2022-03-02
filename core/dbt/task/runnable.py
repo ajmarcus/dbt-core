@@ -4,7 +4,8 @@ import json
 from abc import abstractmethod
 from concurrent.futures import as_completed
 from datetime import datetime
-from multiprocessing.dummy import Pool as ThreadPool
+
+# from multiprocessing.dummy import Pool as ThreadPool
 from typing import Optional, Dict, List, Set, Tuple, Iterable, AbstractSet
 
 from .printer import (
@@ -61,6 +62,10 @@ MANIFEST_FILE_NAME = "manifest.json"
 RUNNING_STATE = DbtProcessState("running")
 
 
+class ThreadPool:
+    num_threads: int
+
+
 class ManifestTask(ConfiguredTask):
     def __init__(self, args, config):
         super().__init__(args, config)
@@ -73,7 +78,10 @@ class ManifestTask(ConfiguredTask):
             self.manifest.write(path)
         if os.getenv("DBT_WRITE_FILES"):
             path = os.path.join(self.config.target_path, "files.json")
-            write_file(path, json.dumps(self.manifest.files, cls=dbt.utils.JSONEncoder, indent=4))
+            write_file(
+                path,
+                json.dumps(self.manifest.files, cls=dbt.utils.JSONEncoder, indent=4),
+            )
 
     def load_manifest(self):
         self.manifest = ManifestLoader.get_full_manifest(self.config)
@@ -81,7 +89,9 @@ class ManifestTask(ConfiguredTask):
 
     def compile_manifest(self):
         if self.manifest is None:
-            raise InternalException("compile_manifest called before manifest was loaded")
+            raise InternalException(
+                "compile_manifest called before manifest was loaded"
+            )
         adapter = get_adapter(self.config)
         compiler = adapter.get_compiler()
         self.graph = compiler.compile(self.manifest)
@@ -139,7 +149,9 @@ class GraphRunnableTask(ManifestTask):
 
     @abstractmethod
     def get_node_selector(self) -> NodeSelector:
-        raise NotImplementedException(f"get_node_selector not implemented for task {type(self)}")
+        raise NotImplementedException(
+            f"get_node_selector not implemented for task {type(self)}"
+        )
 
     def get_graph_queue(self) -> GraphQueue:
         selector = self.get_node_selector()
@@ -149,7 +161,9 @@ class GraphRunnableTask(ManifestTask):
     def _runtime_initialize(self):
         super()._runtime_initialize()
         if self.manifest is None or self.graph is None:
-            raise InternalException("_runtime_initialize never loaded the manifest and graph!")
+            raise InternalException(
+                "_runtime_initialize never loaded the manifest and graph!"
+            )
 
         self.job_queue = self.get_graph_queue()
 
@@ -165,7 +179,9 @@ class GraphRunnableTask(ManifestTask):
                     f"Node selection returned {uid}, expected a node or a " f"source"
                 )
 
-        self.num_nodes = len([n for n in self._flattened_nodes if not n.is_ephemeral_model])
+        self.num_nodes = len(
+            [n for n in self._flattened_nodes if not n.is_ephemeral_model]
+        )
 
     def raise_on_first_error(self):
         return False
@@ -255,7 +271,7 @@ class GraphRunnableTask(ManifestTask):
 
         This does still go through the callback path for result collection.
         """
-        if self.config.args.single_threaded:
+        if True:
             callback(self.call_runner(*args))
         else:
             pool.apply_async(self.call_runner, args=args, callback=callback)
@@ -276,7 +292,9 @@ class GraphRunnableTask(ManifestTask):
             self._handle_result(result)
 
             if self.job_queue is None:
-                raise InternalException("Got to run_queue callback with no job queue set")
+                raise InternalException(
+                    "Got to run_queue callback with no job queue set"
+                )
             self.job_queue.mark_done(result.node.unique_id)
 
         while not self.job_queue.empty():
@@ -361,7 +379,9 @@ class GraphRunnableTask(ManifestTask):
         target_name = self.config.target_name
 
         with NodeCount(self.num_nodes):
-            fire_event(ConcurrencyLine(num_threads=num_threads, target_name=target_name))
+            fire_event(
+                ConcurrencyLine(num_threads=num_threads, target_name=target_name)
+            )
         with TextOnly():
             fire_event(EmptyLine())
 
@@ -420,7 +440,9 @@ class GraphRunnableTask(ManifestTask):
         finally:
             adapter.cleanup_connections()
 
-        result = self.get_result(results=res, elapsed_time=elapsed, generated_at=datetime.utcnow())
+        result = self.get_result(
+            results=res, elapsed_time=elapsed, generated_at=datetime.utcnow()
+        )
         return result
 
     def write_result(self, result):
@@ -433,12 +455,17 @@ class GraphRunnableTask(ManifestTask):
         self._runtime_initialize()
 
         if self._flattened_nodes is None:
-            raise InternalException("after _runtime_initialize, _flattened_nodes was still None")
+            raise InternalException(
+                "after _runtime_initialize, _flattened_nodes was still None"
+            )
 
         if len(self._flattened_nodes) == 0:
             with TextOnly():
                 fire_event(EmptyLine())
-            msg = "Nothing to do. Try checking your model " "configs and model specification args"
+            msg = (
+                "Nothing to do. Try checking your model "
+                "configs and model specification args"
+            )
             warn_or_error(msg, log_fmt=warning_tag("{}"))
             result = self.get_result(
                 results=[],
@@ -475,7 +502,9 @@ class GraphRunnableTask(ManifestTask):
         ]
         return len(failures) == 0
 
-    def get_model_schemas(self, adapter, selected_uids: Iterable[str]) -> Set[BaseRelation]:
+    def get_model_schemas(
+        self, adapter, selected_uids: Iterable[str]
+    ) -> Set[BaseRelation]:
         if self.manifest is None:
             raise InternalException("manifest was None in get_model_schemas")
         result: Set[BaseRelation] = set()
@@ -550,7 +579,10 @@ class GraphRunnableTask(ManifestTask):
                 if db_schema not in existing_schemas_lowered:
                     existing_schemas_lowered.add(db_schema)
                     fut = tpe.submit_connected(
-                        adapter, f'create_{info.database or ""}_{info.schema}', create_schema, info
+                        adapter,
+                        f'create_{info.database or ""}_{info.schema}',
+                        create_schema,
+                        info,
                     )
                     create_futures.append(fut)
 

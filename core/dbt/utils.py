@@ -102,7 +102,9 @@ def get_dbt_docs_name(name):
     return f"{DOCS_PREFIX}{name}"
 
 
-def get_materialization_macro_name(materialization_name, adapter_type=None, with_prefix=True):
+def get_materialization_macro_name(
+    materialization_name, adapter_type=None, with_prefix=True
+):
     if adapter_type is None:
         adapter_type = "default"
     name = f"materialization_{materialization_name}_{adapter_type}"
@@ -189,22 +191,31 @@ def _deep_map_render(
     ret: Any
 
     if isinstance(value, list):
-        ret = [_deep_map_render(func, v, (keypath + (idx,))) for idx, v in enumerate(value)]
+        ret = [
+            _deep_map_render(func, v, (keypath + (idx,))) for idx, v in enumerate(value)
+        ]
     elif isinstance(value, dict):
-        ret = {k: _deep_map_render(func, v, (keypath + (str(k),))) for k, v in value.items()}
+        ret = {
+            k: _deep_map_render(func, v, (keypath + (str(k),)))
+            for k, v in value.items()
+        }
     elif isinstance(value, atomic_types):
         ret = func(value, keypath)
     else:
         container_types: Tuple[Type[Any], ...] = (list, dict)
         ok_types = container_types + atomic_types
         raise dbt.exceptions.DbtConfigError(
-            "in _deep_map_render, expected one of {!r}, got {!r}".format(ok_types, type(value))
+            "in _deep_map_render, expected one of {!r}, got {!r}".format(
+                ok_types, type(value)
+            )
         )
 
     return ret
 
 
-def deep_map_render(func: Callable[[Any, Tuple[Union[str, int], ...]], Any], value: Any) -> Any:
+def deep_map_render(
+    func: Callable[[Any, Tuple[Union[str, int], ...]], Any], value: Any
+) -> Any:
     """This function renders a nested dictionary derived from a yaml
     file. It is used to render dbt_project.yml, profiles.yml, and
     schema files.
@@ -358,7 +369,9 @@ class Translator:
         for key, value in kwargs.items():
             canonical_key = self.aliases.get(key, key)
             if canonical_key in result:
-                dbt.exceptions.raise_duplicate_alias(kwargs, self.aliases, canonical_key)
+                dbt.exceptions.raise_duplicate_alias(
+                    kwargs, self.aliases, canonical_key
+                )
             result[canonical_key] = self.translate_value(value)
         return result
 
@@ -484,11 +497,13 @@ class SingleThreadedExecutor(ConnectingExecutor):
             self, fn, *args = args
         elif not args:
             raise TypeError(
-                "descriptor 'submit' of 'SingleThreadedExecutor' object needs " "an argument"
+                "descriptor 'submit' of 'SingleThreadedExecutor' object needs "
+                "an argument"
             )
         else:
             raise TypeError(
-                "submit expected at least 1 positional argument, " "got %d" % (len(args) - 1)
+                "submit expected at least 1 positional argument, "
+                "got %d" % (len(args) - 1)
             )
         fut = concurrent.futures.Future()
         try:
@@ -515,7 +530,7 @@ class MultiThreadedExecutor(
 
 
 class ThreadedArgs(Protocol):
-    single_threaded: bool
+    single_threaded: bool = True
 
 
 class HasThreadingConfig(Protocol):
@@ -524,7 +539,7 @@ class HasThreadingConfig(Protocol):
 
 
 def executor(config: HasThreadingConfig) -> ConnectingExecutor:
-    if config.args.single_threaded:
+    if True:
         return SingleThreadedExecutor()
     else:
         return MultiThreadedExecutor(max_workers=config.threads)
@@ -617,7 +632,9 @@ def _connection_exception_retry(fn, max_attempts: int, attempt: int = 0):
             time.sleep(1)
             _connection_exception_retry(fn, max_attempts, attempt + 1)
         else:
-            raise ConnectionException("External connection exception occurred: " + str(exc))
+            raise ConnectionException(
+                "External connection exception occurred: " + str(exc)
+            )
 
 
 # This is used to serialize the args in the run_results and in the logs.
@@ -645,7 +662,7 @@ def args_to_dict(args):
             "full_refresh",
             "fail_fast",
             "warn_error",
-            "single_threaded",
+            # "single_threaded",
             "log_cache_events",
             "store_failures",
             "use_experimental_parser",
@@ -655,7 +672,9 @@ def args_to_dict(args):
         if key == "vars" and var_args[key] == "{}":
             continue
         # this was required for a test case
-        if isinstance(var_args[key], PosixPath) or isinstance(var_args[key], WindowsPath):
+        if isinstance(var_args[key], PosixPath) or isinstance(
+            var_args[key], WindowsPath
+        ):
             var_args[key] = str(var_args[key])
         dict_args[key] = var_args[key]
     return dict_args

@@ -1,9 +1,10 @@
 import os
-import multiprocessing
 
-if os.name != "nt":
-    # https://bugs.python.org/issue41567
-    import multiprocessing.popen_spawn_posix  # type: ignore
+# import multiprocessing
+
+# if os.name != "nt":
+#     # https://bugs.python.org/issue41567
+#     import multiprocessing.popen_spawn_posix  # type: ignore
 from pathlib import Path
 from typing import Optional
 
@@ -90,13 +91,18 @@ ARTIFACT_STATE_PATH = env_set_path("DBT_ARTIFACT_STATE_PATH")
 ENABLE_LEGACY_LOGGER = env_set_truthy("DBT_ENABLE_LEGACY_LOGGER")
 
 
-def _get_context():
-    # TODO: change this back to use fork() on linux when we have made that safe
-    return multiprocessing.get_context("spawn")
+# def _get_context():
+#     # TODO: change this back to use fork() on linux when we have made that safe
+#     return multiprocessing.get_context("spawn")
 
 
 # This is not a flag, it's a place to store the lock
-MP_CONTEXT = _get_context()
+# MP_CONTEXT = _get_context()
+
+
+class MP_CONTEXT:
+    Lock = lambda x: x
+    RLock = lambda x: x
 
 
 def set_from_args(args, user_config):
@@ -115,7 +121,9 @@ def set_from_args(args, user_config):
     WHICH = getattr(args, "which", WHICH)
 
     # global cli flags with env var and user_config alternatives
-    USE_EXPERIMENTAL_PARSER = get_flag_value("USE_EXPERIMENTAL_PARSER", args, user_config)
+    USE_EXPERIMENTAL_PARSER = get_flag_value(
+        "USE_EXPERIMENTAL_PARSER", args, user_config
+    )
     STATIC_PARSER = get_flag_value("STATIC_PARSER", args, user_config)
     WARN_ERROR = get_flag_value("WARN_ERROR", args, user_config)
     WRITE_JSON = get_flag_value("WRITE_JSON", args, user_config)
@@ -126,7 +134,9 @@ def set_from_args(args, user_config):
     LOG_FORMAT = get_flag_value("LOG_FORMAT", args, user_config)
     VERSION_CHECK = get_flag_value("VERSION_CHECK", args, user_config)
     FAIL_FAST = get_flag_value("FAIL_FAST", args, user_config)
-    SEND_ANONYMOUS_USAGE_STATS = get_flag_value("SEND_ANONYMOUS_USAGE_STATS", args, user_config)
+    SEND_ANONYMOUS_USAGE_STATS = get_flag_value(
+        "SEND_ANONYMOUS_USAGE_STATS", args, user_config
+    )
     PRINTER_WIDTH = get_flag_value("PRINTER_WIDTH", args, user_config)
     INDIRECT_SELECTION = get_flag_value("INDIRECT_SELECTION", args, user_config)
     LOG_CACHE_EVENTS = get_flag_value("LOG_CACHE_EVENTS", args, user_config)
@@ -154,7 +164,9 @@ def get_flag_value(flag, args, user_config):
                 flag_value = env_value
             else:
                 flag_value = env_set_bool(env_value)
-        elif user_config is not None and getattr(user_config, lc_flag, None) is not None:
+        elif (
+            user_config is not None and getattr(user_config, lc_flag, None) is not None
+        ):
             flag_value = getattr(user_config, lc_flag)
         else:
             flag_value = flag_defaults[flag]

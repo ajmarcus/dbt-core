@@ -273,12 +273,16 @@ def track_invocation_start(config=None, args=None):
         get_dbt_env_context(),
     ]
 
-    track(active_user, category="dbt", action="invocation", label="start", context=context)
+    track(
+        active_user, category="dbt", action="invocation", label="start", context=context
+    )
 
 
 def track_project_load(options):
     context = [SelfDescribingJson(LOAD_ALL_TIMING_SPEC, options)]
-    assert active_user is not None, "Cannot track project loading time when active user is None"
+    assert (
+        active_user is not None
+    ), "Cannot track project loading time when active user is None"
 
     track(
         active_user,
@@ -291,7 +295,9 @@ def track_project_load(options):
 
 def track_resource_counts(resource_counts):
     context = [SelfDescribingJson(RESOURCE_COUNTS, resource_counts)]
-    assert active_user is not None, "Cannot track resource counts when active user is None"
+    assert (
+        active_user is not None
+    ), "Cannot track resource counts when active user is None"
 
     track(
         active_user,
@@ -307,7 +313,11 @@ def track_model_run(options):
     assert active_user is not None, "Cannot track model runs when active user is None"
 
     track(
-        active_user, category="dbt", action="run_model", label=get_invocation_id(), context=context
+        active_user,
+        category="dbt",
+        action="run_model",
+        label=get_invocation_id(),
+        context=context,
     )
 
 
@@ -325,7 +335,9 @@ def track_rpc_request(options):
 
 
 def track_package_install(config, args, options):
-    assert active_user is not None, "Cannot track package installs when active user is None"
+    assert (
+        active_user is not None
+    ), "Cannot track package installs when active user is None"
 
     invocation_data = get_invocation_context(active_user, config, args)
 
@@ -346,7 +358,9 @@ def track_package_install(config, args, options):
 
 def track_deprecation_warn(options):
 
-    assert active_user is not None, "Cannot track deprecation warnings when active user is None"
+    assert (
+        active_user is not None
+    ), "Cannot track deprecation warnings when active user is None"
 
     context = [SelfDescribingJson(DEPRECATION_WARN_SPEC, options)]
 
@@ -368,20 +382,32 @@ def track_invocation_end(config=None, args=None, result_type=None):
         get_dbt_env_context(),
     ]
 
-    assert active_user is not None, "Cannot track invocation end when active user is None"
+    assert (
+        active_user is not None
+    ), "Cannot track invocation end when active user is None"
 
-    track(active_user, category="dbt", action="invocation", label="end", context=context)
+    track(
+        active_user, category="dbt", action="invocation", label="end", context=context
+    )
 
 
 def track_invalid_invocation(config=None, args=None, result_type=None):
-    assert active_user is not None, "Cannot track invalid invocations when active user is None"
+    assert (
+        active_user is not None
+    ), "Cannot track invalid invocations when active user is None"
 
     user = active_user
     invocation_context = get_invocation_invalid_context(user, config, args, result_type)
 
     context = [invocation_context, get_platform_context(), get_dbt_env_context()]
 
-    track(active_user, category="dbt", action="invocation", label="invalid", context=context)
+    track(
+        active_user,
+        category="dbt",
+        action="invocation",
+        label="invalid",
+        context=context,
+    )
 
 
 def track_experimental_parser_sample(options):
@@ -401,7 +427,9 @@ def track_experimental_parser_sample(options):
 
 def track_partial_parser(options):
     context = [SelfDescribingJson(PARTIAL_PARSER, options)]
-    assert active_user is not None, "Cannot track partial parser info when active user is None"
+    assert (
+        active_user is not None
+    ), "Cannot track partial parser info when active user is None"
 
     track(
         active_user,

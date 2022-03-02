@@ -15,7 +15,10 @@ try:
 except ImportError:
     # the user has a downlevel version of setuptools.
     print("Error: dbt requires setuptools v40.1.0 or higher.")
-    print('Please upgrade setuptools with "pip install --upgrade setuptools" ' "and try again")
+    print(
+        'Please upgrade setuptools with "pip install --upgrade setuptools" '
+        "and try again"
+    )
     sys.exit(1)
 
 
@@ -69,8 +72,7 @@ setup(
         ]
     },
     install_requires=[
-        "dbt-core=={}".format(package_version),
-        "{}~=2.8".format(DBT_PSYCOPG2_NAME),
+        "pg8000==1.24.0",
     ],
     zip_safe=False,
     classifiers=[

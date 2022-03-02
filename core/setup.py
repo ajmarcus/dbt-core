@@ -15,7 +15,10 @@ try:
 except ImportError:
     # the user has a downlevel version of setuptools.
     print("Error: dbt requires setuptools v40.1.0 or higher.")
-    print('Please upgrade setuptools with "pip install --upgrade setuptools" ' "and try again")
+    print(
+        'Please upgrade setuptools with "pip install --upgrade setuptools" '
+        "and try again"
+    )
     sys.exit(1)
 
 
@@ -64,8 +67,7 @@ setup(
         "networkx>=2.3,<3",
         "packaging>=20.9,<22.0",
         "sqlparse>=0.2.3,<0.5",
-        "dbt-extractor==0.4.0",
-        "typing-extensions>=3.7.4,<3.11",
+        "typing-extensions==4.0.1",
         "werkzeug>=1,<3",
         # the following are all to match snowflake-connector-python
         "requests<3.0.0",

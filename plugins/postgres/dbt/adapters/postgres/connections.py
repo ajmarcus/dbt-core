@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-import psycopg2
+import pg8000.dbapi as psycopg2
 
 import dbt.exceptions
 from dbt.adapters.base import Credentials
@@ -104,7 +104,9 @@ class PostgresConnectionManager(SQLConnectionManager):
         search_path = credentials.search_path
         if search_path is not None and search_path != "":
             # see https://postgresql.org/docs/9.5/libpq-connect.html
-            kwargs["options"] = "-c search_path={}".format(search_path.replace(" ", "\\ "))
+            kwargs["options"] = "-c search_path={}".format(
+                search_path.replace(" ", "\\ ")
+            )
 
         if credentials.sslmode:
             kwargs["sslmode"] = credentials.sslmode
@@ -139,7 +141,8 @@ class PostgresConnectionManager(SQLConnectionManager):
             connection.state = "open"
         except psycopg2.Error as e:
             logger.debug(
-                "Got an error when attempting to open a postgres " "connection: '{}'".format(e)
+                "Got an error when attempting to open a postgres "
+                "connection: '{}'".format(e)
             )
 
             connection.handle = None
@@ -179,6 +182,8 @@ class PostgresConnectionManager(SQLConnectionManager):
         message = str(cursor.statusmessage)
         rows = cursor.rowcount
         status_message_parts = message.split() if message is not None else []
-        status_messsage_strings = [part for part in status_message_parts if not part.isdigit()]
+        status_messsage_strings = [
+            part for part in status_message_parts if not part.isdigit()
+        ]
         code = " ".join(status_messsage_strings)
         return AdapterResponse(_message=message, code=code, rows_affected=rows)
