@@ -6,7 +6,7 @@ import os
 #     # https://bugs.python.org/issue41567
 #     import multiprocessing.popen_spawn_posix  # type: ignore
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 # PROFILES_DIR must be set before the other flags
 # It also gets set in main.py and in set_from_args because the rpc server
@@ -101,8 +101,8 @@ ENABLE_LEGACY_LOGGER = env_set_truthy("DBT_ENABLE_LEGACY_LOGGER")
 
 
 class MP_CONTEXT:
-    Lock = lambda x: x
-    RLock = lambda x: x
+    Lock: Callable = lambda x: 1
+    RLock: Callable = lambda x: 1
 
 
 def set_from_args(args, user_config):

@@ -622,7 +622,7 @@ class Manifest(MacroMethods, DataClassMessagePackMixin, dbtClassMixin):
         default_factory=ParsingInfo,
         metadata={"serialize": lambda x: None, "deserialize": lambda x: None},
     )
-    _lock = field(
+    _lock: Callable = field(
         default_factory=flags.MP_CONTEXT.Lock,
         metadata={"serialize": lambda x: None, "deserialize": lambda x: None},
     )
@@ -650,13 +650,12 @@ class Manifest(MacroMethods, DataClassMessagePackMixin, dbtClassMixin):
         return that. If the existing node is compiled, do not update the
         manifest and return the existing node.
         """
-        with self._lock:
-            existing = self.nodes[new_node.unique_id]
-            if getattr(existing, "compiled", False):
-                # already compiled -> must be a NonSourceCompiledNode
-                return cast(NonSourceCompiledNode, existing)
-            _update_into(self.nodes, new_node)
-            return new_node
+        existing = self.nodes[new_node.unique_id]
+        if getattr(existing, "compiled", False):
+            # already compiled -> must be a NonSourceCompiledNode
+            return cast(NonSourceCompiledNode, existing)
+        _update_into(self.nodes, new_node)
+        return new_node
 
     def update_exposure(self, new_exposure: ParsedExposure):
         _update_into(self.exposures, new_exposure)
