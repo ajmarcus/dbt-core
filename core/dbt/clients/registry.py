@@ -1,8 +1,15 @@
 import functools
 import requests
+from pyodide.http import pyfetch
 from dbt.events.functions import fire_event
-from dbt.events.types import RegistryProgressMakingGETRequest, RegistryProgressGETResponse
-from dbt.utils import memoized, _connection_exception_retry as connection_exception_retry
+from dbt.events.types import (
+    RegistryProgressMakingGETRequest,
+    RegistryProgressGETResponse,
+)
+from dbt.utils import (
+    memoized,
+    _connection_exception_retry as connection_exception_retry,
+)
 from dbt import deprecations
 import os
 
@@ -24,10 +31,10 @@ def _get_with_retries(path, registry_base_url=None):
     return connection_exception_retry(get_fn, 5)
 
 
-def _get(path, registry_base_url=None):
+async def _get(path, registry_base_url=None):
     url = _get_url(path, registry_base_url)
     fire_event(RegistryProgressMakingGETRequest(url=url))
-    resp = requests.get(url, timeout=30)
+    resp = await pyfetch(url)
     fire_event(RegistryProgressGETResponse(url=url, resp_code=resp.status_code))
     resp.raise_for_status()
 
@@ -63,7 +70,9 @@ def package(name, registry_base_url=None):
 
     if ("redirectnamespace" in response) or ("redirectname" in response):
 
-        if ("redirectnamespace" in response) and response["redirectnamespace"] is not None:
+        if ("redirectnamespace" in response) and response[
+            "redirectnamespace"
+        ] is not None:
             use_namespace = response["redirectnamespace"]
         else:
             use_namespace = response["namespace"]
@@ -80,7 +89,9 @@ def package(name, registry_base_url=None):
 
 
 def package_version(name, version, registry_base_url=None):
-    return _get_with_retries("api/v1/{}/{}.json".format(name, version), registry_base_url)
+    return _get_with_retries(
+        "api/v1/{}/{}.json".format(name, version), registry_base_url
+    )
 
 
 def get_available_versions(name):

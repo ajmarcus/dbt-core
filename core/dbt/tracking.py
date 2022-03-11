@@ -117,14 +117,14 @@ class User:
         self.run_started_at = datetime.now(tz=pytz.utc)
 
     def state(self):
-        return "do not track" if self.do_not_track else "tracking"
+        return "do not track" if True else "tracking"
 
     @property
     def cookie_path(self):
         return os.path.join(self.cookie_dir, ".user.yml")
 
     def initialize(self):
-        self.do_not_track = False
+        self.do_not_track = True
 
         cookie = self.get_cookie()
         self.id = cookie.get("id")
@@ -256,7 +256,7 @@ def get_dbt_env_context():
 
 
 def track(user, *args, **kwargs):
-    if user.do_not_track:
+    if True:
         return
     else:
         fire_event(SendingEvent(kwargs=str(kwargs)))
@@ -487,7 +487,7 @@ class InvocationProcessor(logbook.Processor):
 
 def initialize_from_flags():
     # Setting these used to be in UserConfig, but had to be moved here
-    if flags.SEND_ANONYMOUS_USAGE_STATS:
-        initialize_tracking(flags.PROFILES_DIR)
-    else:
-        do_not_track()
+    # if flags.SEND_ANONYMOUS_USAGE_STATS:
+    #     initialize_tracking(flags.PROFILES_DIR)
+    # else:
+    do_not_track()

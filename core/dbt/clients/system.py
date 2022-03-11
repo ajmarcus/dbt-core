@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
-import requests
+from pyodide.http import pyfetch
 import stat
 from typing import Type, NoReturn, List, Optional, Dict, Any, Tuple, Callable, Union
 
@@ -178,7 +178,9 @@ def write_json(path: str, data: Dict[str, Any]) -> bool:
     return write_file(path, json.dumps(data, cls=dbt.utils.JSONEncoder))
 
 
-def _windows_rmdir_readonly(func: Callable[[str], Any], path: str, exc: Tuple[Any, OSError, Any]):
+def _windows_rmdir_readonly(
+    func: Callable[[str], Any], path: str, exc: Tuple[Any, OSError, Any]
+):
     exception_val = exc[1]
     if exception_val.errno == errno.EACCES:
         os.chmod(path, stat.S_IWUSR)
@@ -402,7 +404,9 @@ def _interpret_oserror(exc: OSError, cwd: str, cmd: List[str]) -> NoReturn:
     )
 
 
-def run_cmd(cwd: str, cmd: List[str], env: Optional[Dict[str, Any]] = None) -> Tuple[bytes, bytes]:
+def run_cmd(
+    cwd: str, cmd: List[str], env: Optional[Dict[str, Any]] = None
+) -> Tuple[bytes, bytes]:
     fire_event(SystemExecutingCmd(cmd=cmd))
     if len(cmd) == 0:
         raise dbt.exceptions.CommandError(cwd, cmd)
@@ -443,10 +447,12 @@ def download_with_retries(
     connection_exception_retry(download_fn, 5)
 
 
-def download(url: str, path: str, timeout: Optional[Union[float, tuple]] = None) -> None:
+async def download(
+    url: str, path: str, timeout: Optional[Union[float, tuple]] = None
+) -> None:
     path = convert_path(path)
     connection_timeout = timeout or float(os.getenv("DBT_HTTP_TIMEOUT", 10))
-    response = requests.get(url, timeout=connection_timeout)
+    response = await pyfetch(url)
     with open(path, "wb") as handle:
         for block in response.iter_content(1024 * 64):
             handle.write(block)
@@ -466,7 +472,9 @@ def rename(from_path: str, to_path: str, force: bool = False) -> None:
     shutil.move(from_path, to_path)
 
 
-def untar_package(tar_path: str, dest_dir: str, rename_to: Optional[str] = None) -> None:
+def untar_package(
+    tar_path: str, dest_dir: str, rename_to: Optional[str] = None
+) -> None:
     tar_path = convert_path(tar_path)
     tar_dir_name = None
     with tarfile.open(tar_path, "r:gz") as tarball:

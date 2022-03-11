@@ -6,6 +6,7 @@ import json
 from typing import Iterator
 
 import requests
+from pyodide.http import pyfetch
 
 import dbt.exceptions
 import dbt.semver
@@ -16,9 +17,9 @@ from dbt import flags
 PYPI_VERSION_URL = "https://pypi.org/pypi/dbt-core/json"
 
 
-def get_latest_version(version_url: str = PYPI_VERSION_URL):
+async def get_latest_version(version_url: str = PYPI_VERSION_URL):
     try:
-        resp = requests.get(version_url)
+        resp = await pyfetch(version_url)
         data = resp.json()
         version_string = data["info"]["version"]
     except (json.JSONDecodeError, KeyError, requests.RequestException):
@@ -54,7 +55,9 @@ def get_version_information():
     plugin_version_msg = "Plugins:\n"
     for plugin_name, version in _get_dbt_plugins_info():
         plugin_version = dbt.semver.VersionSpecifier.from_version_string(version)
-        latest_plugin_version = get_latest_version(version_url=get_package_pypi_url(plugin_name))
+        latest_plugin_version = get_latest_version(
+            version_url=get_package_pypi_url(plugin_name)
+        )
         plugin_update_msg = ""
         if installed == plugin_version or (
             latest_plugin_version and plugin_version == latest_plugin_version
