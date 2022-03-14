@@ -1,6 +1,6 @@
 import functools
-import requests
-from pyodide.http import pyfetch
+import json
+from pyodide.http import open_url
 from dbt.events.functions import fire_event
 from dbt.events.types import (
     RegistryProgressMakingGETRequest,
@@ -31,22 +31,13 @@ def _get_with_retries(path, registry_base_url=None):
     return connection_exception_retry(get_fn, 5)
 
 
-async def _get(path, registry_base_url=None):
+def _get(path, registry_base_url=None):
     url = _get_url(path, registry_base_url)
     fire_event(RegistryProgressMakingGETRequest(url=url))
-    resp = await pyfetch(url)
+    resp = open_url(url)
     fire_event(RegistryProgressGETResponse(url=url, resp_code=resp.status_code))
-    resp.raise_for_status()
 
-    # It is unexpected for the content of the response to be None so if it is, raising this error
-    # will cause this function to retry (if called within _get_with_retries) and hopefully get
-    # a response.  This seems to happen when there's an issue with the Hub.
-    # See https://github.com/dbt-labs/dbt-core/issues/4577
-    if resp.json() is None:
-        raise requests.exceptions.ContentDecodingError(
-            "Request error: The response is None", response=resp
-        )
-    return resp.json()
+    return json.load(resp)
 
 
 def index(registry_base_url=None):

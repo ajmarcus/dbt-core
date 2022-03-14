@@ -6,7 +6,7 @@ import json
 from typing import Iterator
 
 import requests
-from pyodide.http import pyfetch
+from pyodide.http import open_url
 
 import dbt.exceptions
 import dbt.semver
@@ -17,10 +17,10 @@ from dbt import flags
 PYPI_VERSION_URL = "https://pypi.org/pypi/dbt-core/json"
 
 
-async def get_latest_version(version_url: str = PYPI_VERSION_URL):
+def get_latest_version(version_url: str = PYPI_VERSION_URL):
     try:
-        resp = await pyfetch(version_url)
-        data = resp.json()
+        resp = open_url(version_url)
+        data = json.load(resp)
         version_string = data["info"]["version"]
     except (json.JSONDecodeError, KeyError, requests.RequestException):
         return None

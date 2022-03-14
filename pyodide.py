@@ -6,7 +6,7 @@ import micropip
 deps = [
     "https://storage.googleapis.com/db-owser/parsedatetime-2.7-py3-none-any.whl",
     "https://storage.googleapis.com/db-owser/minimal-snowplow-tracker-0.0.2-py3-none-any.whl",
-    "https://storage.googleapis.com/db-owser/dbt_core-1.0.1.4-py3-none-any.whl",
+    "https://storage.googleapis.com/db-owser/dbt_core-1.0.1.9-py3-none-any.whl",
     "https://storage.googleapis.com/db-owser/dbt_postgres-1.0.1-py3-none-any.whl",
 ]
 for d in deps:
@@ -21,21 +21,22 @@ dbt.main.main(["init"])
 
 import os
 
-for root, dirs, files in os.walk("."):
+for root, dirs, files in os.walk(".."):
     for filename in files:
         print(f"{root}/{filename}")
 
-second_model = open("./db/models/example/my_second_dbt_model.sql").read()
-for line in second_model.split("\n"):
-    print(line)
 
-project = open("./db/dbt_project.yml").read()
-for line in project.split("\n"):
-    print(line)
+def print_file(filename):
+    f = open(filename)
+    for line in f:
+        print(line)
 
-logs = open("./logs/dbt.log").read()
-for line in logs.split("\n"):
-    print(line)
 
-os.chdir("./db")
+print_file("../logs/dbt.log")
+
+print_file("../.dbt/profiles.yml")
+print_file("./dbt_project.yml")
+print_file("./models/example/my_second_dbt_model.sql")
+
+
 dbt.main.main(["parse"])

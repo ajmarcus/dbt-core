@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
-from pyodide.http import pyfetch
+from pyodide.http import open_url
 import stat
 from typing import Type, NoReturn, List, Optional, Dict, Any, Tuple, Callable, Union
 
@@ -447,14 +447,14 @@ def download_with_retries(
     connection_exception_retry(download_fn, 5)
 
 
-async def download(
+def download(
     url: str, path: str, timeout: Optional[Union[float, tuple]] = None
 ) -> None:
     path = convert_path(path)
     connection_timeout = timeout or float(os.getenv("DBT_HTTP_TIMEOUT", 10))
-    response = await pyfetch(url)
+    response = open_url(url)
     with open(path, "wb") as handle:
-        for block in response.iter_content(1024 * 64):
+        for block in response:
             handle.write(block)
 
 
