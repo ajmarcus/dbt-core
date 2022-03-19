@@ -5,6 +5,7 @@ import os
 # if os.name != "nt":
 #     # https://bugs.python.org/issue41567
 #     import multiprocessing.popen_spawn_posix  # type: ignore
+import threading
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -101,8 +102,8 @@ ENABLE_LEGACY_LOGGER = env_set_truthy("DBT_ENABLE_LEGACY_LOGGER")
 
 
 class MP_CONTEXT:
-    Lock: Callable = lambda x: 1
-    RLock: Callable = lambda x: 1
+    Lock: Callable = threading.Lock
+    RLock: Callable = threading.RLock
 
 
 def set_from_args(args, user_config):

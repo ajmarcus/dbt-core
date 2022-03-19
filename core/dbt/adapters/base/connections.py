@@ -3,7 +3,7 @@ import os
 
 # multiprocessing.RLock is a function returning this type
 # from multiprocessing.synchronize import RLock
-from threading import get_ident
+from threading import get_ident, RLock
 from typing import Dict, Tuple, Hashable, Optional, ContextManager, List, Union
 
 import agate
@@ -54,7 +54,7 @@ class BaseConnectionManager(metaclass=abc.ABCMeta):
     def __init__(self, profile: AdapterRequiredConfig):
         self.profile = profile
         self.thread_connections: Dict[Hashable, Connection] = {}
-        self.lock = flags.MP_CONTEXT.RLock()
+        self.lock = RLock()
         self.query_header: Optional[MacroQueryStringSetter] = None
 
     def set_query_header(self, manifest: Manifest) -> None:
@@ -68,12 +68,12 @@ class BaseConnectionManager(metaclass=abc.ABCMeta):
 
     def get_thread_connection(self) -> Connection:
         key = self.get_thread_identifier()
-        with self.lock:
-            if key not in self.thread_connections:
-                raise dbt.exceptions.InvalidConnectionException(
-                    key, list(self.thread_connections)
-                )
-            return self.thread_connections[key]
+        # with self.lock:
+        if key not in self.thread_connections:
+            raise dbt.exceptions.InvalidConnectionException(
+                key, list(self.thread_connections)
+            )
+        return self.thread_connections[key]
 
     def set_thread_connection(self, conn: Connection) -> None:
         key = self.get_thread_identifier()

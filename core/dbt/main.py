@@ -244,8 +244,8 @@ def run_from_args(parsed):
 
     results = None
 
-    with track_run(task):
-        results = task.run()
+    # with track_run(task):
+    results = task.run()
     return task, results
 
 
