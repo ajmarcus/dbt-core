@@ -4,6 +4,7 @@ import os
 import glob
 import json
 from typing import Iterator, List, Optional, Tuple
+import sys
 
 import requests
 
@@ -45,14 +46,18 @@ def get_latest_version(
     version_url: str = PYPI_VERSION_URL,
 ) -> Optional[dbt.semver.VersionSpecifier]:
     try:
-        resp = requests.get(version_url)
-        data = resp.json()
+        # Running in pyodide
+        # https://pyodide.org/en/stable/usage/faq.html#how-to-detect-that-code-is-run-with-pyodide
+        if "pyodide" in sys.modules:
+            from pyodide.http import open_url
+            data = json.load(open_url(version_url))
+        else:
+            data = requests.get(version_url).json()
         version_string = data["info"]["version"]
     except (json.JSONDecodeError, KeyError, requests.RequestException):
         return None
 
     return dbt.semver.VersionSpecifier.from_version_string(version_string)
-
 
 def _get_core_msg_lines(installed, latest) -> Tuple[List[List[str]], str]:
     installed_s = installed.to_version_string(skip_matcher=True)
@@ -200,6 +205,9 @@ def _pad_lines(lines: List[List[str]], seperator: str = "") -> List[List[str]]:
             result[i][j] = item.ljust(counter[j] + offset)
 
     return result
+
+def get_installed_version():
+    return dbt.semver.VersionSpecifier.from_version_string(__version__)
 
 
 def get_package_pypi_url(package_name: str) -> str:

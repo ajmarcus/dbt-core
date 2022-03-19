@@ -2,7 +2,7 @@ import enum
 from dataclasses import dataclass, field
 from itertools import chain, islice
 from mashumaro import DataClassMessagePackMixin
-from multiprocessing.synchronize import Lock
+import sys
 from typing import (
     Dict,
     List,
@@ -56,6 +56,11 @@ from dbt.ui import line_wrap_message
 from dbt import flags
 from dbt import tracking
 import dbt.utils
+
+if "pyodide" in sys.modules:
+    from threading import Lock
+else:
+    from multiprocessing.synchronize import Lock
 
 NodeEdgeMap = Dict[str, List[str]]
 PackageName = str
@@ -605,10 +610,16 @@ class Manifest(MacroMethods, DataClassMessagePackMixin, dbtClassMixin):
         default_factory=ParsingInfo,
         metadata={"serialize": lambda x: None, "deserialize": lambda x: None},
     )
-    _lock: Lock = field(
-        default_factory=flags.MP_CONTEXT.Lock,
-        metadata={"serialize": lambda x: None, "deserialize": lambda x: None},
-    )
+    if "pyodide" in sys.modules:
+        _lock: Callable = field(
+            default_factory=Lock,
+            metadata={"serialize": lambda x: None, "deserialize": lambda x: None},
+        )
+    else:
+        _lock: Lock = field(
+            default_factory=flags.MP_CONTEXT.Lock,
+            metadata={"serialize": lambda x: None, "deserialize": lambda x: None},
+        )
 
     def __pre_serialize__(self):
         # serialization won't work with anything except an empty source_patches because
@@ -618,7 +629,10 @@ class Manifest(MacroMethods, DataClassMessagePackMixin, dbtClassMixin):
 
     @classmethod
     def __post_deserialize__(cls, obj):
-        obj._lock = flags.MP_CONTEXT.Lock()
+        if "pyodide" in sys.modules:
+            obj._lock = Lock()
+        else:
+            obj._lock = flags.MP_CONTEXT.Lock()
         return obj
 
     def sync_update_node(self, new_node: NonSourceCompiledNode) -> NonSourceCompiledNode:

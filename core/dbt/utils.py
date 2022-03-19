@@ -11,6 +11,7 @@ import json
 import os
 import requests
 from tarfile import ReadError
+import sys
 import time
 from pathlib import PosixPath, WindowsPath
 
@@ -531,7 +532,7 @@ class HasThreadingConfig(Protocol):
 
 
 def executor(config: HasThreadingConfig) -> ConnectingExecutor:
-    if config.args.single_threaded:
+    if config.args.single_threaded or "pyodide" in sys.modules:
         return SingleThreadedExecutor()
     else:
         return MultiThreadedExecutor(max_workers=config.threads)

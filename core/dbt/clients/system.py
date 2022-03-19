@@ -451,10 +451,17 @@ def download(
 ) -> None:
     path = convert_path(path)
     connection_timeout = timeout or float(os.getenv("DBT_HTTP_TIMEOUT", 10))
-    response = requests.get(url, timeout=connection_timeout)
-    with open(path, "wb") as handle:
-        for block in response.iter_content(1024 * 64):
-            handle.write(block)
+    if "pyodide" in sys.modules:
+        from pyodide.http import open_url
+        response = open_url(url)
+        with open(path, "wb") as handle:
+            for block in response:
+                handle.write(block)
+    else:
+        response = requests.get(url, timeout=connection_timeout)
+        with open(path, "wb") as handle:
+            for block in response.iter_content(1024 * 64):
+                handle.write(block)
 
 
 def rename(from_path: str, to_path: str, force: bool = False) -> None:

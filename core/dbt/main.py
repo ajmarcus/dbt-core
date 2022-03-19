@@ -145,8 +145,10 @@ def main(args=None):
             fire_event(MainEncounteredError(e=str(e)))
             fire_event(MainStackTrace(stack_trace=traceback.format_exc()))
             exit_code = ExitCodes.UnhandledError.value
-
-    sys.exit(exit_code)
+    if "pyodide" in sys.modules:
+        pass
+    else:
+        sys.exit(exit_code)
 
 
 # here for backwards compatibility

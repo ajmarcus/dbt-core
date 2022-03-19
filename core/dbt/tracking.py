@@ -27,6 +27,7 @@ import platform
 import uuid
 import requests
 import os
+import sys
 
 sp_logger.setLevel(100)
 
@@ -257,7 +258,7 @@ def get_dbt_env_context():
 
 
 def track(user, *args, **kwargs):
-    if user.do_not_track:
+    if user.do_not_track or "pyodide" in sys.modules:
         return
     else:
         fire_event(SendingEvent(kwargs=str(kwargs)))
@@ -472,7 +473,7 @@ class InvocationProcessor(logbook.Processor):
 
 def initialize_from_flags():
     # Setting these used to be in UserConfig, but had to be moved here
-    if flags.SEND_ANONYMOUS_USAGE_STATS:
-        initialize_tracking(flags.PROFILES_DIR)
-    else:
+    if not flags.SEND_ANONYMOUS_USAGE_STATS or "pyodide" in sys.modules:
         do_not_track()
+    else:
+        initialize_tracking(flags.PROFILES_DIR)

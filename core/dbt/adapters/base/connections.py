@@ -1,9 +1,7 @@
 import abc
 import os
 
-# multiprocessing.RLock is a function returning this type
-from multiprocessing.synchronize import RLock
-from threading import get_ident
+import sys
 from typing import Dict, Tuple, Hashable, Optional, ContextManager, List
 
 import agate
@@ -35,6 +33,12 @@ from dbt.events.types import (
 from dbt import flags
 
 
+if "pyodide" in sys.modules:
+    from threading import get_ident, RLock
+else:
+    from multiprocessing.synchronize import RLock
+    from threading import get_ident
+
 class BaseConnectionManager(metaclass=abc.ABCMeta):
     """Methods to implement:
         - exception_handler
@@ -54,7 +58,10 @@ class BaseConnectionManager(metaclass=abc.ABCMeta):
     def __init__(self, profile: AdapterRequiredConfig):
         self.profile = profile
         self.thread_connections: Dict[Hashable, Connection] = {}
-        self.lock: RLock = flags.MP_CONTEXT.RLock()
+        if "pyodide" in sys.modules:
+            self.lock: RLock = RLock()
+        else:
+            self.lock: RLock = flags.MP_CONTEXT.RLock()
         self.query_header: Optional[MacroQueryStringSetter] = None
 
     def set_query_header(self, manifest: Manifest) -> None:

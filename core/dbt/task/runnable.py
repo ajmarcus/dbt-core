@@ -5,7 +5,7 @@ from pathlib import Path
 from abc import abstractmethod
 from concurrent.futures import as_completed
 from datetime import datetime
-from multiprocessing.dummy import Pool as ThreadPool
+import sys
 from typing import Optional, Dict, List, Set, Tuple, Iterable, AbstractSet
 
 from .printer import (
@@ -62,6 +62,22 @@ RESULT_FILE_NAME = "run_results.json"
 MANIFEST_FILE_NAME = "manifest.json"
 RUNNING_STATE = DbtProcessState("running")
 
+
+if "pyodide" in sys.modules:
+    class ThreadPool:
+        def __init__(self, num_threads: int) -> None:
+            pass
+
+        def close(self):
+            pass
+
+        def join(self):
+            pass
+
+        def terminate(self):
+            pass
+else:
+    from multiprocessing.dummy import Pool as ThreadPool
 
 class ManifestTask(ConfiguredTask):
     def __init__(self, args, config):
@@ -264,7 +280,7 @@ class GraphRunnableTask(ManifestTask):
 
         This does still go through the callback path for result collection.
         """
-        if self.config.args.single_threaded:
+        if self.config.args.single_threaded or "pyodide" in sys.modules:
             callback(self.call_runner(*args))
         else:
             pool.apply_async(self.call_runner, args=args, callback=callback)

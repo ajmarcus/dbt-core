@@ -1,9 +1,5 @@
 import os
-import multiprocessing
-
-if os.name != "nt":
-    # https://bugs.python.org/issue41567
-    import multiprocessing.popen_spawn_posix  # type: ignore
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -105,8 +101,15 @@ ENABLE_LEGACY_LOGGER = env_set_truthy("DBT_ENABLE_LEGACY_LOGGER")
 
 
 def _get_context():
-    # TODO: change this back to use fork() on linux when we have made that safe
-    return multiprocessing.get_context("spawn")
+    if "pyodide" in sys.modules:
+        return None
+    else:
+        import multiprocessing
+        if os.name != "nt":
+            # https://bugs.python.org/issue41567
+            import multiprocessing.popen_spawn_posix  # type: ignore
+        # TODO: change this back to use fork() on linux when we have made that safe
+        return multiprocessing.get_context("spawn")
 
 
 # This is not a flag, it's a place to store the lock

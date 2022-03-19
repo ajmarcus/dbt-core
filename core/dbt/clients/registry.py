@@ -15,6 +15,7 @@ from dbt.events.types import (
 from dbt.utils import memoized, _connection_exception_retry as connection_exception_retry
 from dbt import deprecations
 import os
+import sys
 
 if os.getenv("DBT_PACKAGE_HUB_URL"):
     DEFAULT_REGISTRY_BASE_URL = os.getenv("DBT_PACKAGE_HUB_URL")
@@ -31,11 +32,19 @@ def _get_url(name, registry_base_url=None):
 
 
 def _get_with_retries(package_name, registry_base_url=None):
-    get_fn = functools.partial(_get, package_name, registry_base_url)
-    return connection_exception_retry(get_fn, 5)
+    if "pyodide" in sys.modules:
+        return _get_pyodide(package_name, registry_base_url)
+    else:
+        get_fn = functools.partial(_get_cpython, package_name, registry_base_url)
+        return connection_exception_retry(get_fn, 5)
+    
+def _get_pyodide(package_name, registry_base_url=None):
+    url = _get_url(package_name, registry_base_url)
+    from pyodide.http import open_url
+    import json
+    return json.load(open_url(url))
 
-
-def _get(package_name, registry_base_url=None):
+def _get_cpython(package_name, registry_base_url=None):
     url = _get_url(package_name, registry_base_url)
     fire_event(RegistryProgressMakingGETRequest(url=url))
     # all exceptions from requests get caught in the retry logic so no need to wrap this here
@@ -91,8 +100,10 @@ def _get(package_name, registry_base_url=None):
 
     return response
 
-
 _get_cached = memoized(_get_with_retries)
+
+def index(registry_base_url=None):
+    return _get_with_retries("api/v1/index.json", registry_base_url)
 
 
 def package(package_name, registry_base_url=None) -> Dict[str, Any]:
