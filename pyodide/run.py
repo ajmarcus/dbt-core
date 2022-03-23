@@ -67,3 +67,5 @@ p(cat("./target/compiled/db/models/example/my_second_dbt_model.sql"))
 
 db = DB("./dev.db")
 p(tables(db))
+p(select(db, "select * from my_first_dbt_model"))
+p(select(db, "select * from my_second_dbt_model"))
