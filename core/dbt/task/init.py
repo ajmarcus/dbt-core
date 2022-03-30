@@ -303,7 +303,8 @@ class InitTask(BaseTask):
         if not len(available_adapters):
             print("No adapters available. Go to https://docs.getdbt.com/docs/available-adapters")
             exit(1)
-        project_name = self.get_valid_project_name()
+        # project_name = self.get_valid_project_name()
+        project_name = 'bowser' # TODO for demo only
         project_path = Path(project_name)
         if project_path.exists():
             fire_event(ProjectNameAlreadyExists(name=project_name))
@@ -321,7 +322,8 @@ class InitTask(BaseTask):
         if not self.args.skip_profile_setup:
             if not self.check_if_can_write_profile(profile_name=project_name):
                 return
-            adapter = self.ask_for_adapter_choice()
+            # adapter = self.ask_for_adapter_choice()
+            adapter = list(_get_adapter_plugin_names())[0] # TODO for demo only
             self.create_profile_from_target(adapter, profile_name=project_name)
             msg = self.get_addendum(project_name, profiles_dir)
             fire_event(GetAddendum(msg=msg))

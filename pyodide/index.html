@@ -8,15 +8,107 @@
       href="https://cdn.jsdelivr.net/npm/jquery.terminal@2.23.0/css/jquery.terminal.min.css"
       rel="stylesheet"
     />
+    <!-- <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap" rel="stylesheet"> -->
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/lib/codemirror.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/lib/codemirror.css">
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/sql/sql.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/theme/dracula.css">
     <script src="https://cdn.jsdelivr.net/pyodide/v0.19.1/full/pyodide.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/normalize.css@8.0.1/normalize.min.css">
     <style>
       .terminal {
         --size: 1.5;
-        --color: rgba(255, 255, 255, 0.8);
+        --background-color: rgba(255, 255, 255, 0.8);
+      }
+      body {
+        background-color: rgb(30, 30, 30);
+        color: white;
+        font-family: monospace;
+      }
+      #editor {
+        display: grid;
+        grid-gap: 3px;
+        grid-template-columns: 190px 650px 610px;
+        /* grid-template-columns: 2fr 7fr 5fr; */
+        grid-template-rows: 15px 25px 560px 240px;
+      }
+      #header {
+        background-color: rgb(40, 40, 40);
+        grid-row: 1 / 1;
+        grid-column: 1 / 4;
+        padding-top: 0.1rem;
+        padding-left: 0.5rem;
+        font-size: 0.6rem;
+      }
+      #sidebar {
+        background-color: rgb(25, 25, 25);
+        grid-row: 2 / 5;
+        grid-column: 1 / 1;
+        overflow: auto;
+      }
+      #sidebar-list {
+        list-style-type: none;
+        padding: 0.5rem;
+        margin: 0.5rem;
+      }
+      #sidebar-list > li {
+        padding-top: 0.3rem;
+      }
+      #file-filename {
+        background-color: rgb(30, 30, 30);
+        grid-row: 2 / 2;
+        grid-column: 2 / 2;
+        padding-top: 0.3rem;
+        padding-left: 0.5rem;
+        font-size: 0.8rem;
+      }
+      #file {
+        background-color: rgb(15, 15, 15);
+        grid-row: 3 / 3;
+        grid-column: 2 / 2;
+        padding: 0;
+        font-size: 1.2rem;
+      }
+      .CodeMirror {
+        height: 98%;
+        padding: 0.5rem;
+      }
+      #result-filename {
+        background-color: rgb(30, 30, 30);
+        grid-row: 2 / 2;
+        grid-column: 3 / 3;
+        padding-top: 0.3rem;
+        padding-left: 0.5rem;
+        font-size: 0.8rem;
+      }
+      #result {
+        background-color: rgb(25, 25, 25);
+        grid-row: 3 / 3;
+        grid-column: 3 / 3;
+        overflow: auto;
+        padding: 1rem;
+        font-size: 1.2rem;
+      }
+      #terminal-container {
+        background-color: black;
+        grid-row: 4 / 4;
+        grid-column: 2 / 4;
+        overflow: auto;
       }
     </style>
   </head>
   <body>
+    <div id="editor">
+      <div id="header">dbowser</div>
+      <div id="sidebar"><ul id="sidebar-list"></ul></div>
+      <div id="file-filename"></div>
+      <div id="file"></div>
+      <div id="result-filename"></div>
+      <div id="result"></div>
+      <div id="terminal-container"></div>
+    </div>
     <script>
       "use strict";
       function sleep(s) {
@@ -34,7 +126,7 @@
             from pyodide import to_js
             from pyodide.console import PyodideConsole, repr_shorten, BANNER
             import __main__
-            BANNER = "Welcome to the Pyodide terminal emulator 🐍\\n" + BANNER
+            BANNER = "Welcome to your dbt terminal emulator 💜💜💜\\n" + BANNER
             pyconsole = PyodideConsole(__main__.__dict__)
             import builtins
             async def await_fut(fut):
@@ -118,9 +210,81 @@
           unlock();
         }
 
-        let term = $("body").terminal(interpreter, {
+        function catFile(filename) {
+          let prefix = "/home/pyodide/bowser/";
+          let command = `file_cat('${prefix}${filename}')`
+          return pyodide.runPython(command).toJs();
+        }
+
+        function saveFile(filename, value) {
+          let prefix = "/home/pyodide/bowser/";
+          let sanitized = value.split("\"").join("\\\"");
+          let command = `file_write("${prefix}${filename}", """${sanitized}""")`
+          pyodide.runPython(command);
+        }
+
+        function compiledFilename(filename) {
+          return `target/compiled/bowser/${filename}`;
+        }
+
+        function compileModel(filename) {
+          let modelname = filename.split("/").pop().split(".")[0];
+          pyodide.runPython(`tdb("compile -m ${modelname}")`)
+          return catFile(compiledFilename(filename));
+        }
+
+        function setResult(filename) {
+          $.when(
+            $.map(
+              compileModel(filename),
+              function(item) { $("#result").append(item + "<br/>") }
+            )
+          ).done(
+            $("#result-filename")
+              .text(compiledFilename(filename))
+              .css("background-color", "darkgreen")
+          );
+        }
+
+        function loadFiles(editor) {
+          $.when( $("#sidebar-list").empty() )
+          .then(
+            $.map(
+              pyodide.runPython("file_list('/home/pyodide/bowser/')").toJs(),
+              function(item) { $("#sidebar-list").append("<li>"+item+"</li>") }
+            )
+          ).done(
+            $("#sidebar-list > li").click(function() {
+              let filename = $( this ).text();
+              refresh(editor, filename);
+            })
+          );
+        }
+
+        function refresh(editor, filename) {
+          editor.getDoc().setValue(catFile(filename).join("\n"));
+          $("#file-filename").text(filename);
+          $("#result-filename").empty().css("background-color", "rgb(30, 30, 30)");
+          $("#result").empty();
+          if (filename.startsWith("models") && filename.endsWith("sql")) {
+            setResult(filename);
+          }
+          loadFiles(editor);
+        }
+
+        function save(filename, value) {
+          saveFile(filename, value);
+          $("#result-filename").empty().css("background-color", "rgb(30, 30, 30)");
+          $("#result").empty();
+          if (filename.startsWith("models") && filename.endsWith("sql")) {
+            setResult(filename);
+          }
+        }
+
+        let term = $("#terminal-container").terminal(interpreter, {
           greetings: banner,
           prompt: ps1,
+          height: 250,
           completionEscape: false,
           completion: function (command, callback) {
             callback(pyconsole.complete(command).toJs()[0]);
@@ -162,66 +326,109 @@
           await sleep(15);
           term.pause();
         };
-        interpreter(
+        var editor = CodeMirror(
+          document.getElementById("file"),
+          {
+            value: "Loading....",
+            mode:  "sql",
+            theme: "dracula",
+          }
+        );
+        // capture apple cmd + s
+        var cmdFlag = false;
+        $(document).on({
+          keydown: function(event) {
+            if (event.ctrlKey || event.metaKey || event.which === 19) {
+              event.preventDefault();
+              cmdFlag = true;
+            }
+            if( cmdFlag && event.which === 83 ){
+              event.preventDefault(); // maybe not necessary
+              let filename = $("#file-filename").text();
+              save(filename, editor.getDoc().getValue());
+              cmdFlag = false;
+            }
+          }
+        });
+        $.when(
+          interpreter(
             `
             import micropip
             import sqlite3
             from typing import List
             import os
+            import json
 
             deps = [
                 "https://storage.googleapis.com/db-owser/parsedatetime-2.7-py3-none-any.whl",
                 "https://storage.googleapis.com/db-owser/minimal-snowplow-tracker-0.0.2-py3-none-any.whl",
-                "https://storage.googleapis.com/db-owser/dbt_core-1.0.1.2-py3-none-any.whl",
+                "https://storage.googleapis.com/db-owser/dbt_core-1.0.1.4-py3-none-any.whl",
                 "https://storage.googleapis.com/db-owser/dbt_sqlite-1.0.0-py3-none-any.whl",
             ]
             for d in deps:
                 await micropip.install(d, True)
-            `
-        );
-        interpreter(
-            `
+            
             import dbt.main
 
-            def run(cmd: str = None):
+            def tdb(cmd: str = None):
                 if cmd is None:
                     return dbt.main.main([])
                 else:
-                    return dbt.main.main([cmd])
+                    return dbt.main.main(cmd.split(" "))
 
-            def cat(filename: str) -> List[str]:
-                lines = []
+            def cat(filename: str) -> None:
                 f = open(filename)
                 for line in f:
-                    lines.append(line)
-                return lines
+                    print(line)
                 
-            def ls(root_dir: str) -> List[str]:
+            def ls(root_dir: str) -> None:
+                for root, dirs, files in os.walk(root_dir):
+                    for filename in files:
+                        print(f"{root}/{filename}")
+            
+            def file_list(root_dir: str) -> List[str]:
                 result = []
                 for root, dirs, files in os.walk(root_dir):
                     for filename in files:
-                        result.append(f"{root}/{filename}")
+                        relative = root[len(root_dir):]
+                        if len(relative) > 0:
+                            result.append(f"{relative}/{filename}")
+                        else:
+                            result.append(filename)
                 return result
 
-            def p(i: List) -> None:
-                for l in i:
-                    print(l)
+            def file_cat(filename: str) -> List[str]:
+                result = []
+                f = open(filename)
+                for line in f:
+                    result.append(line.strip())
+                return result
+
+            def file_write(filename: str, value: str) -> None:
+                f = open(filename, "w")
+                f.write(value)
+                f.close()
 
             class DB(object):
                 def __init__(self, filename: str) -> None:
                     self._con = sqlite3.connect(filename)
                 
-            def select(db: DB, query: str) -> List[sqlite3.Row]:
-                result = []
+            def select(db: DB, query: str) -> None:
                 cur = db._con.cursor()
                 for row in cur.execute(query):
-                    result.append(row)
-                return result
+                    print(row)
 
-            def tables(db: DB) -> List[sqlite3.Row]:
+            def tables(db: DB) -> None:
                 return select(db, "select * from sqlite_master")
+
+            tdb("init")
+            os.chdir("../bowser/")
+            # tdb("compile")
             `
-        )
+          )
+        ).done( function() {
+          refresh(editor, "models/example/my_second_dbt_model.sql");
+        })
       }
       window.console_ready = main();
     </script>
