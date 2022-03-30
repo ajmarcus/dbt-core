@@ -8,9 +8,6 @@
       href="https://cdn.jsdelivr.net/npm/jquery.terminal@2.23.0/css/jquery.terminal.min.css"
       rel="stylesheet"
     />
-    <!-- <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap" rel="stylesheet"> -->
     <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/lib/codemirror.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/lib/codemirror.css">
     <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/sql/sql.js"></script>
@@ -27,12 +24,24 @@
         color: white;
         font-family: monospace;
       }
+      button {
+        color: black;
+        background-color: darkorchid;
+        font-size: 0.8rem;
+        border: 0;
+        padding: 0.6rem 0.9rem;
+        margin-right: 0.2rem;
+        margin-top: 0.4rem;
+      }
+      button:hover {
+        background-color: orchid;
+      }
       #editor {
         display: grid;
-        grid-gap: 3px;
+        grid-gap: 0px;
         grid-template-columns: 190px 650px 610px;
         /* grid-template-columns: 2fr 7fr 5fr; */
-        grid-template-rows: 15px 25px 560px 240px;
+        grid-template-rows: 15px 25px 500px 48px 260px;
       }
       #header {
         background-color: rgb(40, 40, 40);
@@ -44,7 +53,7 @@
       }
       #sidebar {
         background-color: rgb(25, 25, 25);
-        grid-row: 2 / 5;
+        grid-row: 2 / 6;
         grid-column: 1 / 1;
         overflow: auto;
       }
@@ -72,7 +81,7 @@
         font-size: 1.2rem;
       }
       .CodeMirror {
-        height: 98%;
+        height: 97%;
         padding: 0.5rem;
       }
       #result-filename {
@@ -91,9 +100,14 @@
         padding: 1rem;
         font-size: 1.2rem;
       }
+      #command-bar {
+        background-color: rgb(25, 25, 25);
+        grid-row: 4 / 4;
+        grid-column: 2 / 4;
+      }
       #terminal-container {
         background-color: black;
-        grid-row: 4 / 4;
+        grid-row: 5 / 5;
         grid-column: 2 / 4;
         overflow: auto;
       }
@@ -107,6 +121,12 @@
       <div id="file"></div>
       <div id="result-filename"></div>
       <div id="result"></div>
+      <div id="command-bar">
+        <button id="command-save">Save</button>
+        <button id="command-preview">Preview</button>
+        <button id="command-run">Run</button>
+        <button id="command-test">Test</button>
+      </div>
       <div id="terminal-container"></div>
     </div>
     <script>
@@ -212,7 +232,7 @@
 
         function catFile(filename) {
           let prefix = "/home/pyodide/bowser/";
-          let command = `file_cat('${prefix}${filename}')`
+          let command = `file_cat("${prefix}${filename}")`
           return pyodide.runPython(command).toJs();
         }
 
@@ -223,14 +243,33 @@
           pyodide.runPython(command);
         }
 
+        function queryFile(filename) {
+          let prefix = "/home/pyodide/bowser/";
+          pyodide.runPython(`query("${prefix}${filename}")`)
+        }
+
         function compiledFilename(filename) {
           return `target/compiled/bowser/${filename}`;
         }
 
+        function isModel(filename) {
+          return filename.startsWith("models") && filename.endsWith("sql");
+        }
+
         function compileModel(filename) {
           let modelname = filename.split("/").pop().split(".")[0];
-          pyodide.runPython(`tdb("compile -m ${modelname}")`)
+          pyodide.runPython(`tdb("compile -m ${modelname}")`);
           return catFile(compiledFilename(filename));
+        }
+
+        function runModel(filename) {
+          let modelname = filename.split("/").pop().split(".")[0];
+          pyodide.runPython(`tdb("run -m +${modelname}")`);
+        }
+
+        function testModel(filename) {
+          let modelname = filename.split("/").pop().split(".")[0];
+          pyodide.runPython(`tdb("test -m +${modelname}")`);
         }
 
         function setResult(filename) {
@@ -256,6 +295,7 @@
           ).done(
             $("#sidebar-list > li").click(function() {
               let filename = $( this ).text();
+              saveCurrentFile(editor);
               refresh(editor, filename);
             })
           );
@@ -266,7 +306,7 @@
           $("#file-filename").text(filename);
           $("#result-filename").empty().css("background-color", "rgb(30, 30, 30)");
           $("#result").empty();
-          if (filename.startsWith("models") && filename.endsWith("sql")) {
+          if (isModel(filename)) {
             setResult(filename);
           }
           loadFiles(editor);
@@ -281,10 +321,43 @@
           }
         }
 
+        function saveCurrentFile(editor) {
+          let filename = $("#file-filename").text();
+          save(filename, editor.getDoc().getValue());
+          loadFiles(editor);
+          return filename;
+        }
+
+        function preview(editor) {
+          let filename = saveCurrentFile(editor);
+          if (isModel(filename)) {
+            compileModel(filename); // ensure model is compiled
+            queryFile(compiledFilename(filename));
+            loadFiles(editor);
+          }
+        }
+
+        function run(editor) {
+          let filename = saveCurrentFile(editor);
+          if (isModel(filename)) {
+            runModel(filename);
+            loadFiles(editor);
+          }
+        }
+
+        function test(editor) {
+          let filename = saveCurrentFile(editor);
+          if (isModel(filename)) {
+            runModel(filename);
+            testModel(filename);
+            loadFiles(editor);
+          }
+        }
+
         let term = $("#terminal-container").terminal(interpreter, {
           greetings: banner,
           prompt: ps1,
-          height: 250,
+          height: 260,
           completionEscape: false,
           completion: function (command, callback) {
             callback(pyconsole.complete(command).toJs()[0]);
@@ -334,19 +407,40 @@
             theme: "dracula",
           }
         );
-        // capture apple cmd + s
-        var cmdFlag = false;
+        $("#command-save").click(function(){
+          saveCurrentFile(editor);
+        });
+        $("#command-preview").click(function(){
+          preview(editor)
+        });
+        $("#command-run").click(function(){
+          run(editor)
+        });
+        $("#command-test").click(function(){
+          test(editor)
+        });
+        // capture keypress for save preview run & test
         $(document).on({
           keydown: function(event) {
-            if (event.ctrlKey || event.metaKey || event.which === 19) {
+            // cmd+s, ctrl+s
+            if ((event.ctrlKey || event.metaKey) & event.which === 83) {
               event.preventDefault();
-              cmdFlag = true;
+              saveCurrentFile(editor)
             }
-            if( cmdFlag && event.which === 83 ){
-              event.preventDefault(); // maybe not necessary
-              let filename = $("#file-filename").text();
-              save(filename, editor.getDoc().getValue());
-              cmdFlag = false;
+            // cmd+p, ctrl+p
+            if ((event.ctrlKey || event.metaKey) & event.which === 80) {
+              event.preventDefault();
+              preview(editor)
+            }
+            // cmd+r, ctrl+r
+            if ((event.ctrlKey || event.metaKey) & event.which === 82) {
+              event.preventDefault();
+              run(editor)
+            }
+            // cmd+t, ctrl+t - not working
+            if ((event.ctrlKey || event.metaKey) & event.which === 84) {
+              event.preventDefault();
+              test(editor)
             }
           }
         });
@@ -358,6 +452,9 @@
             from typing import List
             import os
             import json
+            import logging
+
+            STDOUT = logging.getLogger('default_stdout')
 
             deps = [
                 "https://storage.googleapis.com/db-owser/parsedatetime-2.7-py3-none-any.whl",
@@ -379,12 +476,12 @@
             def cat(filename: str) -> None:
                 f = open(filename)
                 for line in f:
-                    print(line)
+                    STDOUT.info(line)
                 
             def ls(root_dir: str) -> None:
                 for root, dirs, files in os.walk(root_dir):
                     for filename in files:
-                        print(f"{root}/{filename}")
+                        STDOUT.info(f"{root}/{filename}")
             
             def file_list(root_dir: str) -> List[str]:
                 result = []
@@ -415,11 +512,22 @@
                 
             def select(db: DB, query: str) -> None:
                 cur = db._con.cursor()
+                STDOUT.info("Query results:")
+                STDOUT.info("===========================")
                 for row in cur.execute(query):
-                    print(row)
+                    STDOUT.info(row)
+                STDOUT.info("===========================")
 
             def tables(db: DB) -> None:
                 return select(db, "select * from sqlite_master")
+            
+            def query(filename: str) -> None:
+                db = DB("./dev.db")
+                sql = open(filename).read().rstrip()
+                if sql.endswith(";"):
+                  sql = sql[:len(sql)-1]
+                sql += " limit 50;"
+                select(db, sql)
 
             tdb("init")
             os.chdir("../bowser/")
